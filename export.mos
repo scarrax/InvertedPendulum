@@ -10,5 +10,6 @@ buildModelFMU(InvertedPendulum, version = "2.0", fmuType="cs");getErrorString();
 //     2. go to Tools -> Options -> FMI:
 //          1. Set Type to Co-Simulation
 //          2. Set Solver for Co-Simulation to CVODE (do not use expl. Euler!)
-//     3. move FMU to this directory
-//     4. run python script / game
+//     3. File -> Export -> FMU
+//     4. move FMU to this directory
+//     5. run python script / game
