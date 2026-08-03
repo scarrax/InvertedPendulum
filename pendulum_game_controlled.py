@@ -284,6 +284,31 @@ class SimpleController(Controller):
 
 # TODO: some other controllers
 
+K_STABILITY = 0.5
+
+
+def compute_score_increment(angle, stable_streak):
+    max_angle = math.pi / 2
+    bonus_zone = math.radians(15)
+    tight_bonus_zone = math.radians(5)
+
+    increment = 0.0
+    if angle <= max_angle:
+        closeness = (max_angle - angle) / max_angle
+        increment += 0.1 + 0.2 * closeness
+
+        if angle <= bonus_zone:
+            close2 = (bonus_zone - angle) / bonus_zone
+            increment += 2 * (close2**2)
+
+        if angle <= tight_bonus_zone:
+            close3 = (tight_bonus_zone - angle) / tight_bonus_zone
+            increment += 3 * (close3**2)
+
+    increment += K_STABILITY * stable_streak
+    return increment
+
+
 def run_game(screen):
     fmu_path = os.path.abspath("InvertedPendulum.fmu")
     unzipdir = extract(fmu_path)
@@ -317,6 +342,7 @@ def run_game(screen):
     time = 0.0
     score = 0.0
     auto_mode = False
+    stable_streak = 0.0
 
     s = 0.0
     v = 0.0
@@ -363,21 +389,12 @@ def run_game(screen):
             angle -= 2 * math.pi
         angle = abs(angle)
 
-        max_angle = math.pi / 2
-        bonus_zone = math.radians(15)
-        tight_bonus_zone = math.radians(5)
+        if angle <= math.radians(5):
+            stable_streak += dt
+        else:
+            stable_streak = 0.0
 
-        if angle <= max_angle:
-            closeness = (max_angle - angle) / max_angle
-            score += 0.1 + 0.2 * closeness
-
-            if angle <= bonus_zone:
-                close2 = (bonus_zone - angle) / bonus_zone
-                score += 2 * (close2**2)
-
-            if angle <= tight_bonus_zone:
-                close3 = (tight_bonus_zone - angle) / tight_bonus_zone
-                score += 3 * (close3**2)
+        score += compute_score_increment(angle, stable_streak)
 
         phis.append(phi - math.pi)
         taus.append(tau)
