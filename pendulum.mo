@@ -9,6 +9,11 @@ model InvertedPendulum
   parameter Real d_cart = 0.15;
   parameter Real d_pend = 0.15;
 
+  parameter Real s0 = 0;
+  parameter Real v0 = 0;
+  parameter Real phi0 = 0.75 * Modelica.Constants.pi / 2;
+  parameter Real vphi0 = 0;
+
   input Real tau;
   output Real s;
   output Real v;
@@ -19,10 +24,10 @@ model InvertedPendulum
   Real alpha;
 
 initial equation
-  s = 0;
-  v = 0;
-  phi = 0.75 * Modelica.Constants.pi / 2;
-  vphi = 0;
+  s = s0;
+  v = v0;
+  phi = phi0;
+  vphi = vphi0;
 
 equation
   der(s) = v;

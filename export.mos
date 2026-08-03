@@ -2,8 +2,9 @@
 loadFile("pendulum.mo");getErrorString();
 
 // translateModelFMU(InvertedPendulum, fmuType = "cs"); getErrorString();
-setCommandLineOptions("--fmiFlags=s:cvode");getErrorString();
-buildModelFMU(InvertedPendulum, version = "2.0", fmuType="cs");getErrorString();
+
+setCommandLineOptions("--fmiFlags=s:euler"); getErrorString();
+buildModelFMU(InvertedPendulum, version = "2.0", fmuType = "cs"); getErrorString();
 
 // if this does not work properly:
 //     1. open the model in OMEdit

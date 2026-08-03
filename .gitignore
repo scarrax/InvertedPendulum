@@ -1,0 +1,18 @@
+# Build artifacts / FMU export outputs
+*.fmu
+*.log
+*_FMU.libs
+*_FMU.makefile
+*_info.json
+fmuDatein/
+fmu1
+
+# Simulation results
+sim_*.csv
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor
+.vscode/
