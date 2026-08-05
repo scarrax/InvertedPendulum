@@ -202,8 +202,12 @@ def _ensure_leaderboard_columns(df):
     """
     if "Mode" not in df.columns:
         df["Mode"] = "—"
+    else:
+        df["Mode"] = df["Mode"].fillna("—")
     if "Difficulty" not in df.columns:
         df["Difficulty"] = "Standard"
+    else:
+        df["Difficulty"] = df["Difficulty"].fillna("Standard")
     return df
 
 
@@ -223,7 +227,11 @@ def update_leaderboard(score, player_name, mode, difficulty="Standard", filename
         else pd.DataFrame(columns=["Date", "Time", "Name", "Score", "Mode", "Difficulty"])
     )
     df = _ensure_leaderboard_columns(df)
-    df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
+    df = (
+        pd.DataFrame([entry])
+        if df.empty
+        else pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
+    )
     df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
     df.to_csv(filename, index=False)
     print(f"{player_name} achieved score: {score:.2f} - written to {filename}\n")
@@ -422,6 +430,8 @@ def run_game(screen):
                 time = 0.0
                 score = 0.0
                 stable_streak = 0.0
+                auto_time = 0.0
+                manual_time = 0.0
                 taus, phis = [], []
                 s = fmu.getReal([s_ref])[0]
                 v = fmu.getReal([v_ref])[0]
