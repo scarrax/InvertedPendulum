@@ -414,6 +414,18 @@ def run_game(screen):
                 auto_mode = not auto_mode
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 paused = not paused
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                fmu.reset()
+                fmu.enterInitializationMode()
+                fmu.exitInitializationMode()
+                time = 0.0
+                score = 0.0
+                stable_streak = 0.0
+                taus, phis = [], []
+                s = fmu.getReal([s_ref])[0]
+                v = fmu.getReal([v_ref])[0]
+                phi = fmu.getReal([phi_ref])[0]
+                vphi = fmu.getReal([vphi_ref])[0]
 
         if paused:
             plot_taus = taus if taus else [0.0]
