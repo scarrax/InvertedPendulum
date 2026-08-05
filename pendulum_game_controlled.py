@@ -416,6 +416,7 @@ def run_game(screen):
                 paused = not paused
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 fmu.reset()
+                fmu.setupExperiment(startTime=0.0)
                 fmu.enterInitializationMode()
                 fmu.exitInitializationMode()
                 time = 0.0
