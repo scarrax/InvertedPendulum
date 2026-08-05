@@ -10,7 +10,7 @@ from fmpy.fmi2 import FMU2Slave
 import shutil
 
 
-def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False):
+def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False):
     width, height = screen.get_size()
     scale = min(width, height)
 
@@ -177,61 +177,21 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
         size=math.ceil(scale / 42),
     )
 
-    if paused:
-        pause_rect = pygame.Rect(
-            width - math.ceil(scale * 0.30),
-            math.ceil(scale * 0.02) + badge_rect.height + math.ceil(scale * 0.01),
-            math.ceil(scale * 0.28),
-            math.ceil(scale * 0.06),
-        )
-        pygame.draw.rect(screen, dunkel, pause_rect, border_radius=8)
-        pygame.draw.rect(screen, "black", pause_rect, 2, border_radius=8)
-        display(
-            "PAUSED  [P to resume]",
-            pause_rect.center,
-            color=(255, 255, 255),
-            size=math.ceil(scale / 42),
-        )
 
-
-def _ensure_leaderboard_columns(df):
-    """
-    Ensure Mode and Difficulty columns exist in the DataFrame.
-    Backfills missing columns with sensible defaults for legacy CSVs.
-    Returns the modified DataFrame.
-    """
-    if "Mode" not in df.columns:
-        df["Mode"] = "—"
-    else:
-        df["Mode"] = df["Mode"].fillna("—")
-    if "Difficulty" not in df.columns:
-        df["Difficulty"] = "Standard"
-    else:
-        df["Difficulty"] = df["Difficulty"].fillna("Standard")
-    return df
-
-
-def update_leaderboard(score, player_name, mode, difficulty="Standard", filename="leaderboard.csv"):
+def update_leaderboard(score, player_name, filename="leaderboard.csv"):
     now = datetime.now()
     entry = {
         "Date": now.strftime("%Y-%m-%d"),
         "Time": now.strftime("%H:%M:%S"),
         "Name": player_name,
         "Score": round(score, 2),
-        "Mode": mode,
-        "Difficulty": difficulty,
     }
     df = (
         pd.read_csv(filename)
         if os.path.exists(filename)
-        else pd.DataFrame(columns=["Date", "Time", "Name", "Score", "Mode", "Difficulty"])
+        else pd.DataFrame(columns=["Date", "Time", "Name", "Score"])
     )
-    df = _ensure_leaderboard_columns(df)
-    df = (
-        pd.DataFrame([entry])
-        if df.empty
-        else pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
-    )
+    df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
     df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
     df.to_csv(filename, index=False)
     print(f"{player_name} achieved score: {score:.2f} - written to {filename}\n")
@@ -241,9 +201,8 @@ def overlay_leaderboard(screen, filename="leaderboard.csv", top_n=10):
     df = (
         pd.read_csv(filename).sort_values(by="Score", ascending=False).head(top_n)
         if os.path.exists(filename)
-        else pd.DataFrame(columns=["Date", "Time", "Name", "Score", "Mode", "Difficulty"])
+        else pd.DataFrame(columns=["Date", "Time", "Name", "Score"])
     )
-    df = _ensure_leaderboard_columns(df)
 
     title_font = pygame.font.SysFont("arialblack", 64)
     entry_font = pygame.font.SysFont("arial", 36)
@@ -261,9 +220,7 @@ def overlay_leaderboard(screen, filename="leaderboard.csv", top_n=10):
     panel.blit(title, (panel_w // 2 - title.get_width() // 2, 0))
     for i, row in df.iterrows():
         rendered = entry_font.render(
-            f"{i+1:>2}. {row['Name']:10} {row['Score']:.2f}  [{row['Mode']}]",
-            True,
-            (255, 220, 180),
+            f"{i+1:>2}. {row['Name']:10} {row['Score']:.2f}", True, (255, 220, 180)
         )
         panel.blit(rendered, (60, 120 + i * 35))
     prompt = prompt_font.render("Press any key to start...", True, (180, 180, 255))
@@ -327,41 +284,8 @@ class SimpleController(Controller):
 
 # TODO: some other controllers
 
-K_STABILITY = 0.5
-
-
-def compute_score_increment(angle, stable_streak):
-    max_angle = math.pi / 2
-    bonus_zone = math.radians(15)
-    tight_bonus_zone = math.radians(5)
-
-    increment = 0.0
-    if angle <= max_angle:
-        closeness = (max_angle - angle) / max_angle
-        increment += 0.1 + 0.2 * closeness
-
-        if angle <= bonus_zone:
-            close2 = (bonus_zone - angle) / bonus_zone
-            increment += 2 * (close2**2)
-
-        if angle <= tight_bonus_zone:
-            close3 = (tight_bonus_zone - angle) / tight_bonus_zone
-            increment += 3 * (close3**2)
-
-    increment += K_STABILITY * stable_streak
-    return increment
-
-
-def classify_mode(auto_time, manual_time):
-    if manual_time <= 0.0 and auto_time > 0.0:
-        return "Auto"
-    if auto_time <= 0.0 and manual_time > 0.0:
-        return "Manual"
-    return "Mixed"
-
-
 def run_game(screen):
-    fmu_path = os.path.abspath("InvertedPendulumMB.fmu")
+    fmu_path = os.path.abspath("InvertedPendulum.fmu")
     unzipdir = extract(fmu_path)
     desc = read_model_description(unzipdir)
     fmu = FMU2Slave(
@@ -393,22 +317,17 @@ def run_game(screen):
     time = 0.0
     score = 0.0
     auto_mode = False
-    paused = False
-    stable_streak = 0.0
 
     s = 0.0
     v = 0.0
     phi = math.pi + 0.75 * math.pi / 2
     vphi = 0.0
 
-    auto_time = 0.0
-    manual_time = 0.0
-
     taus, phis = [], []
     controller = SimpleController()
     clock = pygame.time.Clock()
 
-    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused)
+    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode)
     pygame.display.flip()
     overlay_leaderboard(screen)
 
@@ -420,42 +339,15 @@ def run_game(screen):
                 exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_h:
                 auto_mode = not auto_mode
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
-                paused = not paused
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                fmu.reset()
-                fmu.setupExperiment(startTime=0.0)
-                fmu.enterInitializationMode()
-                fmu.exitInitializationMode()
-                time = 0.0
-                score = 0.0
-                stable_streak = 0.0
-                auto_time = 0.0
-                manual_time = 0.0
-                taus, phis = [], []
-                s = fmu.getReal([s_ref])[0]
-                v = fmu.getReal([v_ref])[0]
-                phi = fmu.getReal([phi_ref])[0]
-                vphi = fmu.getReal([vphi_ref])[0]
-
-        if paused:
-            plot_taus = taus if taus else [0.0]
-            plot_phis = phis if phis else [phi - math.pi]
-            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused)
-            pygame.display.flip()
-            clock.tick(60)
-            continue
 
         if auto_mode:
             tau = controller.compute(phi, vphi, s, v)
-            auto_time += dt
         else:
             tau = 0.0
             if keys[pygame.K_LEFT]:
                 tau = -MAX_TAU
             if keys[pygame.K_RIGHT]:
                 tau = MAX_TAU
-            manual_time += dt
 
         fmu.setReal([tau_ref], [tau])
         time += dt
@@ -471,12 +363,21 @@ def run_game(screen):
             angle -= 2 * math.pi
         angle = abs(angle)
 
-        if angle <= math.radians(5):
-            stable_streak += dt
-        else:
-            stable_streak = 0.0
+        max_angle = math.pi / 2
+        bonus_zone = math.radians(15)
+        tight_bonus_zone = math.radians(5)
 
-        score += compute_score_increment(angle, stable_streak)
+        if angle <= max_angle:
+            closeness = (max_angle - angle) / max_angle
+            score += 0.1 + 0.2 * closeness
+
+            if angle <= bonus_zone:
+                close2 = (bonus_zone - angle) / bonus_zone
+                score += 2 * (close2**2)
+
+            if angle <= tight_bonus_zone:
+                close3 = (tight_bonus_zone - angle) / tight_bonus_zone
+                score += 3 * (close3**2)
 
         phis.append(phi - math.pi)
         taus.append(tau)
@@ -484,14 +385,14 @@ def run_game(screen):
             phis.pop(0)
             taus.pop(0)
 
-        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused)
+        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode)
         pygame.display.flip()
         clock.tick(60)
 
     fmu.terminate()
     fmu.freeInstance()
     shutil.rmtree(unzipdir)
-    return score, classify_mode(auto_time, manual_time)
+    return score
 
 
 def main():
@@ -504,9 +405,9 @@ def main():
     pygame.mouse.set_visible(True)
 
     while True:
-        score, mode = run_game(screen)
+        score = run_game(screen)
         player_name = get_player_name(screen)
-        update_leaderboard(score, player_name, mode)
+        update_leaderboard(score, player_name)
 
 
 if __name__ == "__main__":
