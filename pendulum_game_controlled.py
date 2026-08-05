@@ -178,18 +178,20 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
     )
 
 
-def update_leaderboard(score, player_name, filename="leaderboard.csv"):
+def update_leaderboard(score, player_name, mode, difficulty="Standard", filename="leaderboard.csv"):
     now = datetime.now()
     entry = {
         "Date": now.strftime("%Y-%m-%d"),
         "Time": now.strftime("%H:%M:%S"),
         "Name": player_name,
         "Score": round(score, 2),
+        "Mode": mode,
+        "Difficulty": difficulty,
     }
     df = (
         pd.read_csv(filename)
         if os.path.exists(filename)
-        else pd.DataFrame(columns=["Date", "Time", "Name", "Score"])
+        else pd.DataFrame(columns=["Date", "Time", "Name", "Score", "Mode", "Difficulty"])
     )
     df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
     df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
@@ -201,7 +203,7 @@ def overlay_leaderboard(screen, filename="leaderboard.csv", top_n=10):
     df = (
         pd.read_csv(filename).sort_values(by="Score", ascending=False).head(top_n)
         if os.path.exists(filename)
-        else pd.DataFrame(columns=["Date", "Time", "Name", "Score"])
+        else pd.DataFrame(columns=["Date", "Time", "Name", "Score", "Mode", "Difficulty"])
     )
 
     title_font = pygame.font.SysFont("arialblack", 64)
@@ -220,7 +222,9 @@ def overlay_leaderboard(screen, filename="leaderboard.csv", top_n=10):
     panel.blit(title, (panel_w // 2 - title.get_width() // 2, 0))
     for i, row in df.iterrows():
         rendered = entry_font.render(
-            f"{i+1:>2}. {row['Name']:10} {row['Score']:.2f}", True, (255, 220, 180)
+            f"{i+1:>2}. {row['Name']:10} {row['Score']:.2f}  [{row['Mode']}]",
+            True,
+            (255, 220, 180),
         )
         panel.blit(rendered, (60, 120 + i * 35))
     prompt = prompt_font.render("Press any key to start...", True, (180, 180, 255))
@@ -437,7 +441,7 @@ def main():
     while True:
         score, mode = run_game(screen)
         player_name = get_player_name(screen)
-        update_leaderboard(score, player_name)
+        update_leaderboard(score, player_name, mode)
 
 
 if __name__ == "__main__":
