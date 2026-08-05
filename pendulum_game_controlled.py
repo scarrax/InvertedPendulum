@@ -284,6 +284,14 @@ class SimpleController(Controller):
 
 # TODO: some other controllers
 
+def classify_mode(auto_time, manual_time):
+    if manual_time <= 0.0 and auto_time > 0.0:
+        return "Auto"
+    if auto_time <= 0.0 and manual_time > 0.0:
+        return "Manual"
+    return "Mixed"
+
+
 def run_game(screen):
     fmu_path = os.path.abspath("InvertedPendulum.fmu")
     unzipdir = extract(fmu_path)
@@ -323,6 +331,9 @@ def run_game(screen):
     phi = math.pi + 0.75 * math.pi / 2
     vphi = 0.0
 
+    auto_time = 0.0
+    manual_time = 0.0
+
     taus, phis = [], []
     controller = SimpleController()
     clock = pygame.time.Clock()
@@ -342,12 +353,14 @@ def run_game(screen):
 
         if auto_mode:
             tau = controller.compute(phi, vphi, s, v)
+            auto_time += dt
         else:
             tau = 0.0
             if keys[pygame.K_LEFT]:
                 tau = -MAX_TAU
             if keys[pygame.K_RIGHT]:
                 tau = MAX_TAU
+            manual_time += dt
 
         fmu.setReal([tau_ref], [tau])
         time += dt
@@ -392,7 +405,7 @@ def run_game(screen):
     fmu.terminate()
     fmu.freeInstance()
     shutil.rmtree(unzipdir)
-    return score
+    return score, classify_mode(auto_time, manual_time)
 
 
 def main():
@@ -402,10 +415,10 @@ def main():
     pygame.mouse.set_visible(False)
     pygame.event.set_grab(True)
     pygame.key.set_mods(0)
-    pygame.mouse.set_visible(False)
+    pygame.mouse.set_visible(True)
 
     while True:
-        score = run_game(screen)
+        score, mode = run_game(screen)
         player_name = get_player_name(screen)
         update_leaderboard(score, player_name)
 
