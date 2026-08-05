@@ -337,7 +337,7 @@ def classify_mode(auto_time, manual_time):
 
 
 def run_game(screen):
-    fmu_path = os.path.abspath("InvertedPendulum.fmu")
+    fmu_path = os.path.abspath("InvertedPendulumMB.fmu")
     unzipdir = extract(fmu_path)
     desc = read_model_description(unzipdir)
     fmu = FMU2Slave(
