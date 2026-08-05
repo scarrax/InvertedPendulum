@@ -178,6 +178,19 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
     )
 
 
+def _ensure_leaderboard_columns(df):
+    """
+    Ensure Mode and Difficulty columns exist in the DataFrame.
+    Backfills missing columns with sensible defaults for legacy CSVs.
+    Returns the modified DataFrame.
+    """
+    if "Mode" not in df.columns:
+        df["Mode"] = "—"
+    if "Difficulty" not in df.columns:
+        df["Difficulty"] = "Standard"
+    return df
+
+
 def update_leaderboard(score, player_name, mode, difficulty="Standard", filename="leaderboard.csv"):
     now = datetime.now()
     entry = {
@@ -193,6 +206,7 @@ def update_leaderboard(score, player_name, mode, difficulty="Standard", filename
         if os.path.exists(filename)
         else pd.DataFrame(columns=["Date", "Time", "Name", "Score", "Mode", "Difficulty"])
     )
+    df = _ensure_leaderboard_columns(df)
     df = pd.concat([df, pd.DataFrame([entry])], ignore_index=True)
     df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
     df.to_csv(filename, index=False)
@@ -205,6 +219,7 @@ def overlay_leaderboard(screen, filename="leaderboard.csv", top_n=10):
         if os.path.exists(filename)
         else pd.DataFrame(columns=["Date", "Time", "Name", "Score", "Mode", "Difficulty"])
     )
+    df = _ensure_leaderboard_columns(df)
 
     title_font = pygame.font.SysFont("arialblack", 64)
     entry_font = pygame.font.SysFont("arial", 36)
