@@ -10,7 +10,7 @@ from fmpy.fmi2 import FMU2Slave
 import shutil
 
 
-def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False):
+def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False):
     width, height = screen.get_size()
     scale = min(width, height)
 
@@ -176,6 +176,22 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
         color=(255, 255, 255),
         size=math.ceil(scale / 42),
     )
+
+    if paused:
+        pause_rect = pygame.Rect(
+            width - math.ceil(scale * 0.30),
+            math.ceil(scale * 0.02) + badge_rect.height + math.ceil(scale * 0.01),
+            math.ceil(scale * 0.28),
+            math.ceil(scale * 0.06),
+        )
+        pygame.draw.rect(screen, dunkel, pause_rect, border_radius=8)
+        pygame.draw.rect(screen, "black", pause_rect, 2, border_radius=8)
+        display(
+            "PAUSED  [P to resume]",
+            pause_rect.center,
+            color=(255, 255, 255),
+            size=math.ceil(scale / 42),
+        )
 
 
 def _ensure_leaderboard_columns(df):
@@ -369,6 +385,7 @@ def run_game(screen):
     time = 0.0
     score = 0.0
     auto_mode = False
+    paused = False
     stable_streak = 0.0
 
     s = 0.0
@@ -383,7 +400,7 @@ def run_game(screen):
     controller = SimpleController()
     clock = pygame.time.Clock()
 
-    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode)
+    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused)
     pygame.display.flip()
     overlay_leaderboard(screen)
 
@@ -395,6 +412,16 @@ def run_game(screen):
                 exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_h:
                 auto_mode = not auto_mode
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                paused = not paused
+
+        if paused:
+            plot_taus = taus if taus else [0.0]
+            plot_phis = phis if phis else [phi - math.pi]
+            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused)
+            pygame.display.flip()
+            clock.tick(60)
+            continue
 
         if auto_mode:
             tau = controller.compute(phi, vphi, s, v)
@@ -434,7 +461,7 @@ def run_game(screen):
             phis.pop(0)
             taus.pop(0)
 
-        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode)
+        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused)
         pygame.display.flip()
         clock.tick(60)
 
