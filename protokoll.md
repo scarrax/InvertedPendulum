@@ -13,7 +13,6 @@ Modelica-Physikmodell und einem Python/Pygame-Frontend.
 |---|---|
 | [pendulum.mo](pendulum.mo) | Modelica-Modell des invertierten Pendels (Wagen + Stab), flache Bewegungsgleichungen. Eingang `tau` (Kraft auf Wagen), Ausgänge `s`, `v`, `phi`, `vphi`. |
 | [export.mos](export.mos) | OpenModelica-Skript, das aus `pendulum.mo` eine FMU (Co-Simulation, CVODE-Solver) baut (`InvertedPendulum.fmu`). Muss vor dem Spiel im Projektroot liegen. |
-| [pendulum_game_controlled.py](pendulum_game_controlled.py) | Das eigentliche Spiel: lädt die FMU via `fmpy`, simuliert in Echtzeit (dt=0.02s, 40s Spieldauer), visualisiert mit Pygame (Wagen, Pendel, Tachometer, Plots für φ(t) und τ(t)). |
 | [leaderboard.csv](leaderboard.csv) | Persistente Bestenliste (Datum, Zeit, Name, Score). |
 
 ### Steuerung / Spielablauf
@@ -65,17 +64,47 @@ $$T = \tfrac12(M+m)v^2 + m\,v\,l\cos\varphi\,\dot\varphi + \tfrac12 m l^2\dot\va
 
 $$V = -mgl\cos\varphi$$
 
-Über die Euler-Lagrange-Gleichungen (mit Reibung $d_{cart}v$ am Wagen und Dämpfung
-$d_{pend}\dot\varphi$ am Gelenk als generalisierte Kräfte) ergibt sich nach Auflösen des
-2×2-Gleichungssystems in $a = \dot v$ und $\alpha = \ddot\varphi$:
+Dämpfung wird über die Rayleigh-Dissipationsfunktion eingeführt (Reibung $d_{cart}v$
+am Wagen, Dämpfung $d_{pend}\dot\varphi$ am Gelenk):
 
-$$a = \frac{\tau - d_{cart}v + m\sin\varphi\,(l\dot\varphi^2 + g\cos\varphi)}{M + m\sin^2\varphi}$$
+$$\mathcal{F} = \tfrac12 d_{cart}v^2 + \tfrac12 d_{pend}\dot\varphi^2$$
 
-$$\alpha = \frac{-\tau\cos\varphi - m l\dot\varphi^2\sin\varphi\cos\varphi - (M+m)g\sin\varphi - d_{pend}\dot\varphi}{l\,(M + m\sin^2\varphi)}$$
+Die Euler-Lagrange-Gleichungen $\frac{d}{dt}\frac{\partial L}{\partial \dot q} -
+\frac{\partial L}{\partial q} + \frac{\partial \mathcal{F}}{\partial \dot q} = Q$
+liefern für $s$ bzw. $\varphi$ (die Coriolis-Kreuzterme $\pm m l\sin\varphi\,v\dot\varphi$
+heben sich in der $\varphi$-Gleichung exakt weg):
 
-Das entspricht (bis auf einen kleinen, im Modell vernachlässigten Kopplungsterm — die
-Rückwirkung der Gelenkdämpfung $d_{pend}$ auf die Wagenbeschleunigung) exakt der Struktur
-in [pendulum.mo:31-33](pendulum.mo#L31-L33). Nachgerechnet und verifiziert.
+$$(M+m)\,a + ml\cos\varphi\,\alpha = \tau - d_{cart}v + ml\sin\varphi\,\dot\varphi^2 \qquad (I)$$
+
+$$ml\cos\varphi\,a + ml^2\,\alpha = -mgl\sin\varphi - d_{pend}\dot\varphi \qquad (II)$$
+
+Das ist ein 2×2-lineares Gleichungssystem in $(a,\alpha)$ mit
+Massenmatrix-Determinante $D = ml^2(M+m\sin^2\varphi)$. Auflösen (Cramer) liefert:
+
+$$a = \frac{\tau - d_{cart}v + m\sin\varphi\,(l\dot\varphi^2 + g\cos\varphi)
+\;+\; \dfrac{d_{pend}\cos\varphi}{l}\dot\varphi}{M + m\sin^2\varphi}$$
+
+$$\alpha = \frac{-\tau\cos\varphi - m l\dot\varphi^2\sin\varphi\cos\varphi - (M+m)g\sin\varphi
+\;-\;\dfrac{M+m}{ml}\,d_{pend}\dot\varphi \;+\; \cos\varphi\,d_{cart}v}{l\,(M + m\sin^2\varphi)}$$
+
+**Vergleich mit dem Code:** [pendulum.mo:31-33](pendulum.mo#L31-L33) implementiert nicht
+diese vollständige Lösung, sondern eine vereinfachte Variante ohne die beiden hervorgehobenen
+Terme — insbesondere fehlt in der $\alpha$-Gleichung die Verstärkung des
+Dämpfungskoeffizienten von $d_{pend}$ auf $\frac{M+m}{ml}\,d_{pend}$
+($=22\times$ bei $M=5,\,m=0{,}5,\,l=0{,}5$). Das ist **keine kleine** Vereinfachung: sie
+entsteht dadurch, dass die Wagen- und Pendelgleichung über den $ml\cos\varphi$-Term in der
+Massenmatrix gekoppelt sind — die volle Dämpfungsreaktion wirkt sich erst über die
+Wagenbeschleunigung zurück auf $\alpha$ aus, bevor man beide Gleichungen zusammen auflöst.
+Die vereinfachte Formel in `pendulum.mo` entspricht stattdessen der Näherung eines fest
+eingespannten Wagens ($M\to\infty$), bei der dieser Term gegen $d_{pend}/(ml^2)$
+konvergiert — dort wäre die Vereinfachung exakt.
+
+Für $M=5 \gg m=0{,}5$ ist diese Näherung grob, aber nicht beliebig schlecht: numerisch
+gegen das MultiBody-Modell (`InvertedPendulumMB.mo`, löst die vollständigen, gekoppelten
+Gleichungen automatisch über die Kinematikkette) validiert in
+[AP1_Validierung.md, Abschnitt 6](AP1_Validierung.md#6-analytische-herleitung-des-kopplungsterms)
+— die obige Herleitung reproduziert die dort gemessene Restdifferenz zwischen flachem und
+MultiBody-Modell bis auf ~1% genau.
 
 **Konvention:** Mit dieser Herleitung ist $\varphi = 0$ die *stabile* hängende Lage
 (Minimum von $V$) und $\varphi = \pi$ die *instabile* aufrechte Lage (Maximum von $V$).

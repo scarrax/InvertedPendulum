@@ -135,26 +135,110 @@ Die beobachteten Abweichungen sind lokalisiert, erklärbar und stimmen in
 Richtung und Größenordnung mit der bereits vorab dokumentierten
 Modellvereinfachung überein.
  
-## 6. Offener Punkt (zurückgestellt)
- 
-Eine geschlossene analytische Herleitung des fehlenden Kopplungsterms
-(vollständige Euler-Lagrange-Gleichung mit Rayleigh-Dissipationsfunktion
-für `d_pend`, unter Berücksichtigung der Kopplung über die Massenmatrix)
-wurde nicht durchgeführt. Sie wäre für eine vollständige quantitative
-Erklärung der Restdifferenz wünschenswert, ist aber für den Abschluss von
-AP1 nicht erforderlich und wurde angesichts des kritischen Zeitpfads
-(AP3: Reglerentwurf) zurückgestellt. Mögliche spätere Verwendung: als
-vertiefende Diskussion in Kapitel 7 (Ergebnisse und Diskussion) der
-schriftlichen Ausarbeitung.
- 
+## 6. Analytische Herleitung des Kopplungsterms
+
+Nachtrag vom 2026-08-05: Die in Abschnitt 5.2 zurückgestellte geschlossene
+Herleitung wurde durchgeführt. Sie erklärt die Restdifferenz nicht nur
+qualitativ, sondern reproduziert sie numerisch bis auf ~1%.
+
+### 6.1 Ansatz
+
+Generalisierte Koordinaten `s` (Wagen), `phi` (Pendel), Punktmasse `m` im
+Abstand `l`, Konvention wie gehabt (`phi=0` hängend, `phi=pi` aufrecht):
+
+```
+x_b = s + l*sin(phi)
+y_b = -l*cos(phi)
+
+T = 1/2*(M+m)*v^2 + m*l*cos(phi)*v*vphi + 1/2*m*l^2*vphi^2
+U = -m*g*l*cos(phi)
+F_diss = 1/2*d_cart*v^2 + 1/2*d_pend*vphi^2   (Rayleigh-Dissipation)
+```
+
+Euler-Lagrange für `s` bzw. `phi` (die Coriolis-Kreuzterme
+`±m*l*sin(phi)*v*vphi` heben sich in der `phi`-Gleichung exakt weg):
+
+```
+(I)   (M+m)*a + m*l*cos(phi)*alpha = tau - d_cart*v + m*l*sin(phi)*vphi^2
+(II)  m*l*cos(phi)*a + m*l^2*alpha = -m*g*l*sin(phi) - d_pend*vphi
+```
+
+### 6.2 Auflösen (Cramer)
+
+Determinante der Massenmatrix: `D = m*l^2*(M + m*sin(phi)^2)`. Auflösen
+von (I)/(II) nach `a` und `alpha` liefert:
+
+```
+a     = [tau - d_cart*v + m*l*sin(phi)*vphi^2 + m*g*sin(phi)*cos(phi)
+         + (d_pend*cos(phi)/l)*vphi] / (M + m*sin(phi)^2)
+
+alpha = [-tau*cos(phi) - m*l*sin(phi)*cos(phi)*vphi^2 - (M+m)*g*sin(phi)
+         - ((M+m)/(m*l))*d_pend*vphi + cos(phi)*d_cart*v]
+        / (l*(M + m*sin(phi)^2))
+```
+
+### 6.3 Vergleich mit `pendulum.mo`
+
+Deckungsgleich mit den Gleichungen in `pendulum.mo:36-38` bis auf genau
+zwei fehlende Terme — beide hängen an den Dämpfungen, keiner an Masse,
+Kraft oder Gravitation (deckt sich mit 5.1: die entkoppelten Fälle ohne
+Geschwindigkeit stimmen exakt):
+
+| Größe | `pendulum.mo` | korrekt (gekoppelt) | Differenz |
+|---|---|---|---|
+| `a` | kein Dämpfungs-Kopplungsterm | `+ (d_pend*cos(phi)/l)*vphi` | fehlender additiver Term |
+| `alpha`, Koeffizient von `d_pend*vphi` | `-1` | `-(M+m)/(m*l)` | Faktor **22** bei `M=5, m=0,5, l=0,5` |
+| `alpha` | kein Term | `+ cos(phi)*d_cart*v` | fehlender additiver Term |
+
+Der Faktor `(M+m)/(m*l) = 22` ist die eigentliche Ursache für die großen
+`alpha_diff`-Werte in Abschnitt 4 — nicht ein „kleiner" Kopplungsterm,
+sondern ein 22-facher Unterschied im Dämpfungskoeffizienten selbst.
+
+### 6.4 Numerische Probe gegen Abschnitt 4
+
+Einsetzen der Testzustände aus der Ergebnistabelle in die korrekten
+Formeln aus 6.2:
+
+| # | Zustand | alpha (korrekt) | alpha_mb (gemessen) | Abw. |
+|---|---|---|---|---|
+| 3 | v0=1, sonst Ruhe | cos(0)·0,15·1/(0,5·5) = **0,060** | 0,0595 | ~1% |
+| 4 | v0=-2, sonst Ruhe | 1·0,15·(-2)/2,5 = **-0,120** | -0,119 | ~1% |
+| 5 | vphi0=1, sonst Ruhe | -(5,5/0,25)·0,15·1/5 = **-1,320** | -1,308 | ~1% |
+
+Die Restabweichung von ~1% ist konsistent mit dem kleinen, in dieser
+Punktmasse-Herleitung nicht berücksichtigten Standard-Trägheitstensor der
+MultiBody-`Body`-Komponente (`I_11=I_22=I_33≈0,001 kg·m²`, siehe
+`InvertedPendulumMB.mo:23-26`) sowie Solver-Rundung.
+
+### 6.5 Physikalische Deutung
+
+Der Grenzfall bestätigt die Herleitung: für `M → ∞` (Wagen fest) geht der
+volle Koeffizient `(M+m)*d_pend / (m*l^2*(M+m*sin(phi)^2))` gegen
+`d_pend/(m*l^2)` — exakt die Gleichung des fest eingespannten Pendels.
+Bei endlichem, beweglichem Wagen verstärkt die Matrix-Inversion (Kopplung
+über den `m*l*cos(phi)`-Term in der Massenmatrix) die Dämpfungswirkung
+auf `alpha`, weil ein Teil der Dämpfungsreaktion erst über die
+Wagenbeschleunigung zurückwirkt, bevor sie sich auf die Winkelbeschleunigung
+auswirkt — genau die Rückkopplung, die `pendulum.mo` beim Herleiten
+vereinfacht hat.
+
+### 6.6 Konsequenz für AP3
+
+Ein Swing-up- oder LQR-Regler, der am flachen Modell entwickelt oder
+getestet wird, ist gegen die MultiBody-FMU voraussichtlich unterdimensioniert
+(zu schwache Verstärkung/Energiezufuhr), weil die reale Dämpfungswirkung auf
+`alpha` deutlich größer ist als die vereinfachte Formel annimmt. Bei der
+Reglerauslegung in AP3 berücksichtigen, ggf. Verstärkungen gegen die
+MultiBody-FMU nachjustieren.
+
 ## 7. Status AP1
- 
+
 - [x] MultiBody-Modell mit Standardbibliotheken erstellt
 - [x] Winkelkonvention experimentell verifiziert
 - [x] FMU-Export funktionsfähig (Euler-Solver; CVODE unter Windows instabil,
       dokumentiert in Abschnitt 3.3)
 - [x] Quantitative Validierung gegen `pendulum.mo` durchgeführt und
       dokumentiert
-- [ ] Optional/zurückgestellt: analytische Herleitung der Restdifferenz
+- [x] Analytische Herleitung der Restdifferenz (Abschnitt 6)
 **AP1 gilt damit als inhaltlich abgeschlossen.**
  
