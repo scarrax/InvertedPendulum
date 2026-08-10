@@ -343,6 +343,29 @@ def compute_lqr_gain(M, m, l, g, d_cart, d_pend, Q, R):
     return K
 
 
+class LQRController(Controller):
+    M = 5
+    m = 0.5
+    l = 0.5
+    g = 9.81
+    d_cart = 0.15
+    d_pend = 0.15
+    Q = np.diag([1.0, 1.0, 10.0, 1.0])
+    R = np.array([[1.0]])
+    MAX_TAU = 10.0
+
+    def __init__(self):
+        self.K = compute_lqr_gain(
+            self.M, self.m, self.l, self.g, self.d_cart, self.d_pend, self.Q, self.R
+        )
+
+    def compute(self, phi_fmu, vphi, s, v):
+        theta = (phi_fmu % (2 * math.pi)) - math.pi
+        x = np.array([[s], [v], [theta], [vphi]])
+        tau = (-self.K @ x).item()
+        return max(-self.MAX_TAU, min(self.MAX_TAU, tau))
+
+
 K_STABILITY = 0.5
 
 
