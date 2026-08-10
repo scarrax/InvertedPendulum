@@ -13,7 +13,7 @@ import numpy as np
 import scipy.linalg
 
 
-def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False, controller_name="SimpleController"):
+def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False, controller_name="PD"):
     width, height = screen.get_size()
     scale = min(width, height)
 
@@ -346,6 +346,7 @@ def compute_lqr_gain(M, m, l, g, d_cart, d_pend, Q, R):
 
 
 class LQRController(Controller):
+    # Must match InvertedPendulumMB.mo's parameters (m_cart, m_pend, l, d_cart, d_pend) — no automatic sync.
     M = 5
     m = 0.5
     l = 0.5
@@ -446,8 +447,8 @@ def run_game(screen):
     manual_time = 0.0
 
     taus, phis = [], []
-    controllers = {"SimpleController": SimpleController(), "LQR": LQRController()}
-    controller_name = "SimpleController"
+    controllers = {"PD": SimpleController(), "LQR": LQRController()}
+    controller_name = "PD"
     clock = pygame.time.Clock()
 
     redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused, controller_name)
@@ -465,9 +466,8 @@ def run_game(screen):
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 paused = not paused
             if event.type == pygame.KEYDOWN and event.key == pygame.K_l:
-                controller_name = (
-                    "LQR" if controller_name == "SimpleController" else "SimpleController"
-                )
+                names = list(controllers)
+                controller_name = names[(names.index(controller_name) + 1) % len(names)]
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 fmu.reset()
                 fmu.setupExperiment(startTime=0.0)

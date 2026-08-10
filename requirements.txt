@@ -1,6 +1,6 @@
-pygame
-fmpy
-pandas
-pytest
-scipy
-numpy
+pygame==2.1.2
+fmpy==0.3.30
+pandas==2.3.3
+pytest==9.1.1
+scipy==1.15.3
+numpy==2.2.6

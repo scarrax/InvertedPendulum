@@ -31,3 +31,8 @@ def test_closed_loop_is_stable():
 def test_gain_shape():
     K = compute_lqr_gain(M, m, l, g, d_cart, d_pend, Q, R)
     assert K.shape == (1, 4)
+
+
+def test_gain_matches_corrected_linearization():
+    K = compute_lqr_gain(M, m, l, g, d_cart, d_pend, Q, R)
+    np.testing.assert_allclose(K, [[-1.0, -4.1175, 126.1476, 23.7542]], rtol=1e-3)
