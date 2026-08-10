@@ -9,6 +9,9 @@ from fmpy import read_model_description, extract
 from fmpy.fmi2 import FMU2Slave
 import shutil
 
+import numpy as np
+import scipy.linalg
+
 
 def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False):
     width, height = screen.get_size()
@@ -326,6 +329,19 @@ class SimpleController(Controller):
         return max(-self.MAX_TAU, min(self.MAX_TAU, tau))
 
 # TODO: some other controllers
+
+def compute_lqr_gain(M, m, l, g, d_cart, d_pend, Q, R):
+    A = np.array([
+        [0, 1, 0, 0],
+        [0, -d_cart / M, m * g / M, -d_pend / (M * l)],
+        [0, 0, 0, 1],
+        [0, -d_cart / (l * M), (M + m) * g / (l * M), -(M + m) * d_pend / (m * l**2 * M)],
+    ])
+    B = np.array([[0], [1 / M], [0], [1 / (l * M)]])
+    P = scipy.linalg.solve_continuous_are(A, B, Q, R)
+    K = np.linalg.inv(R) @ B.T @ P
+    return K
+
 
 K_STABILITY = 0.5
 

@@ -1,0 +1,6 @@
+pygame
+fmpy
+pandas
+pytest
+scipy
+numpy
