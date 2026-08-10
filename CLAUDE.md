@@ -14,7 +14,7 @@ Inverted pendulum: an OpenModelica model (cart + pendulum) exported as an FMU, d
 |----|---|---|
 | AP1 | Modellierung mit Standardbibliotheken (MultiBody FMU vs. formelbasiertes Modell) | ✅ Done — validated, see `AP1_Validierung.md` |
 | AP2 | Interaktive Steuerung und Punktesystem | ✅ Done — merged to `main`, human-verified (H/P/R, MultiBody FMU) |
-| AP3 | Automatisierte Regler (LQR, Swing-up, …) | ⬜ Not started |
+| AP3 | Automatisierte Regler (LQR, Swing-up, …) | 🔶 In progress — Teil 1 (LQR) done, merged to `main`, human-verified; Swing-up und formaler Reglervergleich stehen noch aus |
 | AP4 | Schwierigkeitsgrade | ⬜ Not started (AP2 prepared a `Difficulty` leaderboard column with placeholder `"Standard"`) |
 | AP5 | Schriftliche Ausarbeitung | ⬜ Not started |
 | AP6 | Präsentation | ⬜ Not started |
@@ -23,6 +23,7 @@ Inverted pendulum: an OpenModelica model (cart + pendulum) exported as an FMU, d
 
 - **2026-08-03**: AP1 validated — MultiBody model matches the flat reference model (momentary acceleration comparison, not trajectory comparison — see convention below). Euler solver required on Windows; CVODE crashes with `STATUS_HEAP_CORRUPTION`.
 - **2026-08-05**: AP2 done and merged to `main` (scoring stability bonus, Auto/Manual/Mixed mode tracking, leaderboard `Mode`/`Difficulty` columns + legacy-CSV backfill fix, MultiBody FMU switch, pause `P`, reset `R` with corrected FMI2 `setupExperiment()` sequence). All 6 tasks passed task-scoped review (two needed a fix round); final whole-branch review found and fixed a cross-task gap (reset didn't clear `auto_time`/`manual_time`) plus tooling/robustness issues (root `conftest.py`, leaderboard NaN handling). Human-verified interactively (H/P/R, MultiBody FMU) after merge. Known, deliberately deferred: the stability bonus makes new scores ~40x pre-AP2 leaderboard scores with no visual distinction — noted, not fixed.
+- **2026-08-06**: AP3 Teil 1 (LQR-Regler) done and merged to `main`. `LQRController` linearized around `φ=π` using the *corrected, coupled* equations of motion from `AP1_Validierung.md` §6 (not the flat `pendulum.mo` model), gain computed at runtime via `scipy.linalg.solve_continuous_are`. New `L` key toggles between `SimpleController` ("PD") and `LQR` in Auto mode, independent of `H`. All 3 tasks passed task-scoped review; final whole-branch review independently re-derived the linearization by hand *and* ran the closed-loop control law headless against the real `InvertedPendulumMB.fmu`, confirming LQR balances/recenters from up to ~11° deviation vs. SimpleController's ~2° — then found and fixed a badge-overflow rendering bug and a missing regression test that would've let the linearization silently regress to the (wrong) flat-model coefficients. Human-verified interactively (`L`, LQR holds the pendulum up). New `requirements.txt` (first in the project; `numpy`/`scipy` are new dependencies). Swing-up controller and the formal multi-controller comparison are separate, later AP3 slices — not started.
 
 ## Conventions (binding across all APs)
 
@@ -37,10 +38,12 @@ Inverted pendulum: an OpenModelica model (cart + pendulum) exported as an FMU, d
 
 ## Key Files
 
-- `pendulum_game_controlled.py` — the game (Pygame + fmpy + pandas), all game logic lives here (flat-function style, no submodules).
+- `pendulum_game_controlled.py` — the game (Pygame + fmpy + pandas + numpy/scipy since AP3), all game logic lives here (flat-function style, no submodules).
+- `requirements.txt` — pinned dependency versions (added in AP3; keep in sync with what's actually installed/verified working).
 - `*.mo` / `export.mos` / `export_mb.mos` — OpenModelica models and FMU export scripts. `.fmu`/`.log`/build artifacts are gitignored; copy them manually into any worktree that needs to run the game.
 - `leaderboard.csv` — persistent leaderboard, real user data, schema evolves (see convention above).
 - `protokoll.md` — Lagrange derivation, linearization, controller theory. Reference for the written report (AP5), don't re-derive.
 - `AP1_Validierung.md` — AP1's model validation writeup.
+- `AP2_Validierung.md` — AP2's implementation validation writeup (tests, review process, bugs found during development).
 - `Projektanweisung_Invertiertes_Pendel.md` — full project brief, all APs, milestones, deliverables.
 - `docs/superpowers/plans/` — implementation plans for individual APs (subagent-driven-development / executing-plans format).
