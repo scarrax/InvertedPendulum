@@ -13,7 +13,7 @@ import numpy as np
 import scipy.linalg
 
 
-def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False):
+def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False, controller_name="SimpleController"):
     width, height = screen.get_size()
     scale = min(width, height)
 
@@ -164,7 +164,9 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
     display("Time: t = {: .1f}".format(time), (width / 3, height * 0.05))
 
     badge_color = gruen if auto_mode else rot
-    badge_label = "AUTO  [H to disable]" if auto_mode else "MANUAL  [H for auto]"
+    badge_label = (
+        f"AUTO [{controller_name}]  [H to disable]" if auto_mode else "MANUAL  [H for auto]"
+    )
     badge_rect = pygame.Rect(
         width - math.ceil(scale * 0.30),
         math.ceil(scale * 0.02),
@@ -444,10 +446,11 @@ def run_game(screen):
     manual_time = 0.0
 
     taus, phis = [], []
-    controller = SimpleController()
+    controllers = {"SimpleController": SimpleController(), "LQR": LQRController()}
+    controller_name = "SimpleController"
     clock = pygame.time.Clock()
 
-    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused)
+    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused, controller_name)
     pygame.display.flip()
     overlay_leaderboard(screen)
 
@@ -461,6 +464,10 @@ def run_game(screen):
                 auto_mode = not auto_mode
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 paused = not paused
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_l:
+                controller_name = (
+                    "LQR" if controller_name == "SimpleController" else "SimpleController"
+                )
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 fmu.reset()
                 fmu.setupExperiment(startTime=0.0)
@@ -480,13 +487,13 @@ def run_game(screen):
         if paused:
             plot_taus = taus if taus else [0.0]
             plot_phis = phis if phis else [phi - math.pi]
-            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused)
+            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused, controller_name)
             pygame.display.flip()
             clock.tick(60)
             continue
 
         if auto_mode:
-            tau = controller.compute(phi, vphi, s, v)
+            tau = controllers[controller_name].compute(phi, vphi, s, v)
             auto_time += dt
         else:
             tau = 0.0
@@ -523,7 +530,7 @@ def run_game(screen):
             phis.pop(0)
             taus.pop(0)
 
-        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused)
+        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused, controller_name)
         pygame.display.flip()
         clock.tick(60)
 
