@@ -9,8 +9,11 @@ from fmpy import read_model_description, extract
 from fmpy.fmi2 import FMU2Slave
 import shutil
 
+import numpy as np
+import scipy.linalg
 
-def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False):
+
+def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False, controller_name="PD"):
     width, height = screen.get_size()
     scale = min(width, height)
 
@@ -161,7 +164,9 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
     display("Time: t = {: .1f}".format(time), (width / 3, height * 0.05))
 
     badge_color = gruen if auto_mode else rot
-    badge_label = "AUTO  [H to disable]" if auto_mode else "MANUAL  [H for auto]"
+    badge_label = (
+        f"AUTO [{controller_name}]  [H to disable]" if auto_mode else "MANUAL  [H for auto]"
+    )
     badge_rect = pygame.Rect(
         width - math.ceil(scale * 0.30),
         math.ceil(scale * 0.02),
@@ -327,6 +332,43 @@ class SimpleController(Controller):
 
 # TODO: some other controllers
 
+def compute_lqr_gain(M, m, l, g, d_cart, d_pend, Q, R):
+    A = np.array([
+        [0, 1, 0, 0],
+        [0, -d_cart / M, m * g / M, -d_pend / (M * l)],
+        [0, 0, 0, 1],
+        [0, -d_cart / (l * M), (M + m) * g / (l * M), -(M + m) * d_pend / (m * l**2 * M)],
+    ])
+    B = np.array([[0], [1 / M], [0], [1 / (l * M)]])
+    P = scipy.linalg.solve_continuous_are(A, B, Q, R)
+    K = np.linalg.inv(R) @ B.T @ P
+    return K
+
+
+class LQRController(Controller):
+    # Must match InvertedPendulumMB.mo's parameters (m_cart, m_pend, l, d_cart, d_pend) — no automatic sync.
+    M = 5
+    m = 0.5
+    l = 0.5
+    g = 9.81
+    d_cart = 0.15
+    d_pend = 0.15
+    Q = np.diag([1.0, 1.0, 10.0, 1.0])
+    R = np.array([[1.0]])
+    MAX_TAU = 10.0
+
+    def __init__(self):
+        self.K = compute_lqr_gain(
+            self.M, self.m, self.l, self.g, self.d_cart, self.d_pend, self.Q, self.R
+        )
+
+    def compute(self, phi_fmu, vphi, s, v):
+        theta = (phi_fmu % (2 * math.pi)) - math.pi
+        x = np.array([[s], [v], [theta], [vphi]])
+        tau = (-self.K @ x).item()
+        return max(-self.MAX_TAU, min(self.MAX_TAU, tau))
+
+
 K_STABILITY = 0.5
 
 
@@ -405,10 +447,11 @@ def run_game(screen):
     manual_time = 0.0
 
     taus, phis = [], []
-    controller = SimpleController()
+    controllers = {"PD": SimpleController(), "LQR": LQRController()}
+    controller_name = "PD"
     clock = pygame.time.Clock()
 
-    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused)
+    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused, controller_name)
     pygame.display.flip()
     overlay_leaderboard(screen)
 
@@ -422,6 +465,9 @@ def run_game(screen):
                 auto_mode = not auto_mode
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 paused = not paused
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_l:
+                names = list(controllers)
+                controller_name = names[(names.index(controller_name) + 1) % len(names)]
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 fmu.reset()
                 fmu.setupExperiment(startTime=0.0)
@@ -441,13 +487,13 @@ def run_game(screen):
         if paused:
             plot_taus = taus if taus else [0.0]
             plot_phis = phis if phis else [phi - math.pi]
-            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused)
+            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused, controller_name)
             pygame.display.flip()
             clock.tick(60)
             continue
 
         if auto_mode:
-            tau = controller.compute(phi, vphi, s, v)
+            tau = controllers[controller_name].compute(phi, vphi, s, v)
             auto_time += dt
         else:
             tau = 0.0
@@ -484,7 +530,7 @@ def run_game(screen):
             phis.pop(0)
             taus.pop(0)
 
-        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused)
+        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused, controller_name)
         pygame.display.flip()
         clock.tick(60)
 
