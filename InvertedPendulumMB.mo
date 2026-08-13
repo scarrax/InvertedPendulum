@@ -3,7 +3,7 @@ model InvertedPendulumMB
   parameter Real m_pend = 0.5 "Pendelmasse";
   parameter Real l = 0.5 "Pendellänge";
   parameter Real d_cart = 0.15;
-  parameter Real d_pend = 0.15;
+  parameter Real d_pend = 0.01;
 
   parameter Real s0 = 0;
   parameter Real v0 = 0;
