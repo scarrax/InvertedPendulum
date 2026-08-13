@@ -28,6 +28,9 @@ stabile, hängende Ruhelage, φ=π die instabile, aufrechte Zielposition.
 Diese Konvention wurde experimentell verifiziert: bei `tau=0` und einer
 Anfangsauslenkung von `phi0 = 0.75·π/2 ≈ 67,5°` pendelt sich das System
 nach ca. 8 Sekunden bei `phi=0` ein, wie erwartet.
+(Hinweis: `d_pend` wurde in AP3 Teil 2 von `0.15` auf `0.01` gesenkt — die
+Einpendelzeit bei `tau=0` ist seitdem länger als die hier gemessenen ~8s,
+siehe Abschnitt 6.7.)
  
 ## 3. Validierungsmethodik
  
@@ -230,6 +233,27 @@ getestet wird, ist gegen die MultiBody-FMU voraussichtlich unterdimensioniert
 `alpha` deutlich größer ist als die vereinfachte Formel annimmt. Bei der
 Reglerauslegung in AP3 berücksichtigen, ggf. Verstärkungen gegen die
 MultiBody-FMU nachjustieren.
+
+### 6.7 Bestätigung: Swing-up bei d_pend=0.15 unterdimensioniert (AP3 Teil 2)
+
+Die in Abschnitt 6.6 vorhergesagte Unterdimensionierung wurde in AP3 Teil 2
+empirisch bestätigt: ein energiebasierter Swing-up-Regler erreichte gegen die
+reale `InvertedPendulumMB.fmu` bei `d_pend=0.15` und `MAX_TAU=10` nie den
+LQR-Einzugsbereich (maximale erreichte Energie 1.59 J gegenüber einem Ziel von
+4.9 J, nächste Annäherung an die aufrechte Lage 112.5°). Ein idealer
+Bang-Bang-Regler mit maximalem Stelleingriff erreicht bei gleichem `MAX_TAU`
+exakt dieselbe Energie-Obergrenze — die Grenze liegt am Fluidum/an der
+Aktuatorik, nicht an der Reglerauslegung.
+
+Als Konsequenz wurde `d_pend` in `InvertedPendulumMB.mo` von `0.15` auf `0.01`
+gesenkt und die FMU neu exportiert (Euler-Solver, wie gehabt). Mit diesem
+Wert und einer angepassten Reglerverstärkung (`K_ENERGY=10` statt `3`)
+erreicht derselbe Regler gegen die reale, neu exportierte FMU den
+Einzugsbereich nach ca. 3 Sekunden. Die in Abschnitt 6.4 dokumentierte
+numerische Probe (`d_pend=0.15`, gemessener Koeffizient `-1.308`) bleibt als
+Validierung der *Herleitung* (Abschnitt 6.2) gültig — die Herleitung ist
+weiterhin parametrisch in `d_pend` korrekt, nur der konkrete Modellwert hat
+sich geändert.
 
 ## 7. Status AP1
 

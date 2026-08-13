@@ -352,7 +352,7 @@ class LQRController(Controller):
     l = 0.5
     g = 9.81
     d_cart = 0.15
-    d_pend = 0.15
+    d_pend = 0.01
     Q = np.diag([1.0, 1.0, 10.0, 1.0])
     R = np.array([[1.0]])
     MAX_TAU = 10.0
@@ -380,12 +380,12 @@ class SwingUpController(Controller):
     l = 0.5
     g = 9.81
     d_cart = 0.15
-    d_pend = 0.15
+    d_pend = 0.01
     MAX_TAU = 10.0
 
     # Tuning constants for the real start condition (phi0=67.5 deg, see
     # InvertedPendulumMB.mo); adjustable if interactive testing shows they need retuning.
-    K_ENERGY = 3.0
+    K_ENERGY = 10.0
     CAPTURE_THETA = math.radians(10)
     CAPTURE_VPHI = 2.0
     RELEASE_THETA = math.radians(25)
@@ -456,9 +456,7 @@ def controller_display_name(controller, name):
     if not hasattr(controller, "mode"):
         return name
     submode = "s" if controller.mode == "swingup" else "b"
-    if name == "SwingUp":
-        return f"SU:{submode}"
-    return name
+    return f"SU:{submode}"
 
 
 def run_game(screen):

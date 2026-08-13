@@ -1,6 +1,12 @@
 import math
 
-from pendulum_game_controlled import LQRController, SwingUpController, pendulum_energy
+from pendulum_game_controlled import (
+    LQRController,
+    SimpleController,
+    SwingUpController,
+    controller_display_name,
+    pendulum_energy,
+)
 
 
 def test_energy_zero_at_hanging():
@@ -47,6 +53,16 @@ def test_switches_to_lqr_within_capture_region():
     assert tau == LQRController().compute(phi_fmu=phi, vphi=vphi, s=0.0, v=0.0)
 
 
+def test_stays_in_swingup_when_only_theta_condition_holds():
+    controller = SwingUpController()
+    phi = math.pi + math.radians(5)  # theta=5 deg < CAPTURE_THETA=10 deg
+    vphi = 3.0  # > CAPTURE_VPHI=2.0 -- velocity condition fails, must NOT capture
+
+    controller.compute(phi_fmu=phi, vphi=vphi, s=0.0, v=0.0)
+
+    assert controller.mode == "swingup"
+
+
 def test_stays_in_lqr_within_hysteresis_band():
     controller = SwingUpController()
     controller.mode = "lqr"
@@ -65,4 +81,19 @@ def test_switches_back_to_swingup_outside_release_region():
     tau = controller.compute(phi_fmu=phi, vphi=0.5, s=0.0, v=0.0)
 
     assert controller.mode == "swingup"
-    assert math.isclose(tau, 2.848797352523283)
+    # With K_ENERGY=10 the energy deficit this close to the release boundary
+    # already exceeds MAX_TAU, so this now saturates (it didn't at K_ENERGY=3).
+    assert tau == controller.MAX_TAU
+
+
+def test_swingup_badge_label_stays_short():
+    controller = SwingUpController()
+    assert controller_display_name(controller, "SwingUp") == "SU:s"
+    controller.mode = "lqr"
+    assert controller_display_name(controller, "SwingUp") == "SU:b"
+    assert controller_display_name(SimpleController(), "PD") == "PD"
+    # badge fits: worst case must stay well under the 39-char string that
+    # previously overflowed the fixed-width badge (see pendulum_game_controlled.py
+    # badge_rect, and the AP3 Teil 1 "SimpleController" -> "PD" fix for precedent).
+    badge = f"AUTO [{controller_display_name(controller, 'SwingUp')}]  [H to disable]"
+    assert len(badge) <= 30
