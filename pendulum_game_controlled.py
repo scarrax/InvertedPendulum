@@ -455,7 +455,7 @@ def classify_mode(auto_time, manual_time):
 def controller_display_name(controller, name):
     if not hasattr(controller, "mode"):
         return name
-    label = "swinging" if controller.mode == "swingup" else "balancing"
+    label = "swing" if controller.mode == "swingup" else "bal"
     return f"{name}: {label}"
 
 
