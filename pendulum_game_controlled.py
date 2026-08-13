@@ -369,6 +369,56 @@ class LQRController(Controller):
         return max(-self.MAX_TAU, min(self.MAX_TAU, tau))
 
 
+def pendulum_energy(m, l, g, phi, vphi):
+    return 0.5 * m * l**2 * vphi**2 + m * g * l * (1 - math.cos(phi))
+
+
+class SwingUpController(Controller):
+    # Must match InvertedPendulumMB.mo's parameters (m_cart, m_pend, l, d_cart, d_pend) — no automatic sync.
+    M = 5
+    m = 0.5
+    l = 0.5
+    g = 9.81
+    d_cart = 0.15
+    d_pend = 0.15
+    MAX_TAU = 10.0
+
+    # Tuning constants for the real start condition (phi0=67.5 deg, see
+    # InvertedPendulumMB.mo); adjustable if interactive testing shows they need retuning.
+    K_ENERGY = 3.0
+    CAPTURE_THETA = math.radians(10)
+    CAPTURE_VPHI = 2.0
+    RELEASE_THETA = math.radians(25)
+
+    def __init__(self):
+        self.lqr = LQRController()
+        self.mode = "swingup"
+
+    def compute(self, phi_fmu, vphi, s, v):
+        theta = (phi_fmu % (2 * math.pi)) - math.pi
+
+        if self.mode == "swingup" and abs(theta) < self.CAPTURE_THETA and abs(vphi) < self.CAPTURE_VPHI:
+            self.mode = "lqr"
+        elif self.mode == "lqr" and abs(theta) > self.RELEASE_THETA:
+            self.mode = "swingup"
+
+        if self.mode == "lqr":
+            return self.lqr.compute(phi_fmu, vphi, s, v)
+
+        energy = pendulum_energy(self.m, self.l, self.g, phi_fmu, vphi)
+        energy_top = 2 * self.m * self.g * self.l
+        sign = 1.0 if math.cos(phi_fmu) * vphi >= 0 else -1.0
+        a_cmd = self.K_ENERGY * (energy - energy_top) * sign
+        tau = (
+            a_cmd * (self.M + self.m * math.sin(phi_fmu) ** 2)
+            + self.d_cart * v
+            - self.m * self.l * math.sin(phi_fmu) * vphi**2
+            - self.m * self.g * math.sin(phi_fmu) * math.cos(phi_fmu)
+            - (self.d_pend / self.l) * math.cos(phi_fmu) * vphi
+        )
+        return max(-self.MAX_TAU, min(self.MAX_TAU, tau))
+
+
 K_STABILITY = 0.5
 
 
