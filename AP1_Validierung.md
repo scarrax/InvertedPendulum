@@ -273,6 +273,18 @@ Stellgrößenauflösung zu ändern. Verifiziert gegen die reale FMU mit der tats
 exakt an der energetisch korrekten Grenze von ±67,5°, wie von der
 Energieerhaltung unter reiner Dissipation vorhergesagt.
 
+**Nachtrag (Ausschwingzeit, bewusst akzeptierter Kompromiss):** Als Folge der
+15-fach geringeren Dämpfung dauert das Ausschwingen im manuellen Leerlauf
+(keine Krafteingabe) jetzt deutlich länger als die in Abschnitt 2 gemessenen
+~8s — empirisch (siehe oben) fällt die Amplitude erst nach ca. 180-200s unter
+~1°. Innerhalb einer einzelnen 40s-Spielrunde (`GAME_DURATION`) ist das
+Pendel im manuellen Modus dadurch praktisch durchgehend leicht in Bewegung,
+auch ohne Spielereingabe. Dies ist keine Verletzung der Energieerhaltung
+(die Amplitude nimmt nachweislich monoton ab, siehe Messreihe oben), sondern
+eine direkte, erwartete Folge der für AP3 Teil 2 nötigen Dämpfungsreduktion.
+Bewusst akzeptiert: die schnelle, robuste Swing-up-Erfassung (~3-4s, große
+Sicherheitsmarge) wiegt schwerer als die kurze Ausschwingzeit im Leerlauf.
+
 ## 7. Status AP1
 
 - [x] MultiBody-Modell mit Standardbibliotheken erstellt
