@@ -267,9 +267,11 @@ reale Dämpfung diesen Effekt gerade noch aus, bei `d_pend=0,01` nicht mehr.
 Behoben durch Sub-Stepping der FMU-Kosimulation (`SUBSTEPS=10`, siehe
 `pendulum_game_controlled.py` `run_game()`) — die Zeitschrittweite der
 Physik-Integration wird verkleinert, ohne die 50-Hz-Spiellogik/Wertung/
-Stellgrößenauflösung zu ändern. Verifiziert gegen die reale FMU: freies
-Pendel bleibt über 40s im energetisch korrekten Bereich (±67,5°) statt
-unbegrenzt zu rotieren.
+Stellgrößenauflösung zu ändern. Verifiziert gegen die reale FMU mit der tatsächlichen Rundenstart-Anfangsbedingung
+(`phi0 = 0,75·π/2 ≈ 67,5°` ab hängender Lage, `vphi0=0`): freies Pendel bleibt
+über 40s im Bereich `[-66,10°, 67,31°]` statt unbegrenzt zu rotieren — nahezu
+exakt an der energetisch korrekten Grenze von ±67,5°, wie von der
+Energieerhaltung unter reiner Dissipation vorhergesagt.
 
 ## 7. Status AP1
 
