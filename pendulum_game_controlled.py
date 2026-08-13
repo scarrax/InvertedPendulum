@@ -452,6 +452,13 @@ def classify_mode(auto_time, manual_time):
     return "Mixed"
 
 
+def controller_display_name(controller, name):
+    if not hasattr(controller, "mode"):
+        return name
+    label = "swinging" if controller.mode == "swingup" else "balancing"
+    return f"{name}: {label}"
+
+
 def run_game(screen):
     fmu_path = os.path.abspath("InvertedPendulumMB.fmu")
     unzipdir = extract(fmu_path)
@@ -497,11 +504,11 @@ def run_game(screen):
     manual_time = 0.0
 
     taus, phis = [], []
-    controllers = {"PD": SimpleController(), "LQR": LQRController()}
+    controllers = {"PD": SimpleController(), "LQR": LQRController(), "SwingUp": SwingUpController()}
     controller_name = "PD"
     clock = pygame.time.Clock()
 
-    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused, controller_name)
+    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused, controller_display_name(controllers[controller_name], controller_name))
     pygame.display.flip()
     overlay_leaderboard(screen)
 
@@ -537,7 +544,7 @@ def run_game(screen):
         if paused:
             plot_taus = taus if taus else [0.0]
             plot_phis = phis if phis else [phi - math.pi]
-            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused, controller_name)
+            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused, controller_display_name(controllers[controller_name], controller_name))
             pygame.display.flip()
             clock.tick(60)
             continue
@@ -580,7 +587,7 @@ def run_game(screen):
             phis.pop(0)
             taus.pop(0)
 
-        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused, controller_name)
+        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused, controller_display_name(controllers[controller_name], controller_name))
         pygame.display.flip()
         clock.tick(60)
 
