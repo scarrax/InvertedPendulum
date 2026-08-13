@@ -455,8 +455,10 @@ def classify_mode(auto_time, manual_time):
 def controller_display_name(controller, name):
     if not hasattr(controller, "mode"):
         return name
-    label = "swing" if controller.mode == "swingup" else "bal"
-    return f"{name}: {label}"
+    submode = "s" if controller.mode == "swingup" else "b"
+    if name == "SwingUp":
+        return f"SU:{submode}"
+    return name
 
 
 def run_game(screen):
