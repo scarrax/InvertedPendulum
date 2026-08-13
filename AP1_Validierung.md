@@ -255,6 +255,22 @@ Validierung der *Herleitung* (Abschnitt 6.2) gültig — die Herleitung ist
 weiterhin parametrisch in `d_pend` korrekt, nur der konkrete Modellwert hat
 sich geändert.
 
+**Nachtrag (numerische Stabilität):** Die Senkung von `d_pend` deckte einen
+zweiten, unabhängigen Effekt auf: bei `d_pend=0.01` wurde im manuellen Modus
+(keine Krafteingabe) beobachtet, dass sich das Pendel scheinbar von selbst
+bis zur aufrechten Lage aufschwingt — physikalisch unmöglich unter `tau=0`
+(Energie kann durch Dissipation nur abnehmen, und die Startenergie bei 67,5°
+reicht energetisch ohnehin nicht bis nach oben). Ursache: explizite
+Euler-Integration der FMU-Kosimulation bei `dt=0,02s` speist bei schwach
+gedämpften Schwingungen numerisch Energie ein; bei `d_pend=0,15` glich die
+reale Dämpfung diesen Effekt gerade noch aus, bei `d_pend=0,01` nicht mehr.
+Behoben durch Sub-Stepping der FMU-Kosimulation (`SUBSTEPS=10`, siehe
+`pendulum_game_controlled.py` `run_game()`) — die Zeitschrittweite der
+Physik-Integration wird verkleinert, ohne die 50-Hz-Spiellogik/Wertung/
+Stellgrößenauflösung zu ändern. Verifiziert gegen die reale FMU: freies
+Pendel bleibt über 40s im energetisch korrekten Bereich (±67,5°) statt
+unbegrenzt zu rotieren.
+
 ## 7. Status AP1
 
 - [x] MultiBody-Modell mit Standardbibliotheken erstellt

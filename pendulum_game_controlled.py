@@ -487,6 +487,14 @@ def run_game(screen):
     vphi_ref = ref("vphi")
 
     dt = 0.02
+    # Explicit-Euler FMU co-simulation at the full 0.02s step can numerically
+    # inject energy into a lightly-damped oscillator (confirmed: at the low
+    # d_pend used since AP3 Teil 2's swing-up fix, single 0.02s steps make
+    # free-swinging pendulum motion diverge instead of decay). Sub-stepping
+    # the FMU call keeps physics accurate without changing the 50Hz game
+    # timing, scoring cadence, or actuation resolution (tau is still set
+    # once per outer frame, before the substep loop).
+    SUBSTEPS = 10
     GAME_DURATION = 40
     MAX_TAU = 10.0
     time = 0.0
@@ -561,8 +569,10 @@ def run_game(screen):
             manual_time += dt
 
         fmu.setReal([tau_ref], [tau])
-        time += dt
-        fmu.doStep(currentCommunicationPoint=time, communicationStepSize=dt)
+        substep_dt = dt / SUBSTEPS
+        for _ in range(SUBSTEPS):
+            time += substep_dt
+            fmu.doStep(currentCommunicationPoint=time, communicationStepSize=substep_dt)
 
         s = fmu.getReal([s_ref])[0]
         v = fmu.getReal([v_ref])[0]
