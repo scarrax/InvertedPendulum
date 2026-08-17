@@ -12,6 +12,8 @@ import shutil
 from fmpy import extract, read_model_description
 from fmpy.fmi2 import FMU2Slave
 
+from pendulum_game_controlled import LQRController, SimpleController, SwingUpController
+
 # Success criterion shared across all scenarios: a controller "holds" the
 # upright position from the moment |theta| stays below TOLERANCE_DEG for at
 # least HOLD_DURATION seconds. TOLERANCE_DEG matches the game's own
@@ -123,3 +125,118 @@ def simulate_run(fmu_path, controller, theta0_deg=None, vphi0=0.0, duration=20.0
         shutil.rmtree(unzipdir)
 
     return t_history, theta_history
+
+
+CONTROLLER_FACTORIES = {
+    "PD": SimpleController,
+    "LQR": LQRController,
+    "SwingUp": SwingUpController,
+}
+
+
+class KickInjector:
+    """on_frame callback for simulate_run: waits until the controller has
+    held the upright position, then injects a fixed-magnitude tau pulse for
+    `kick_steps` frames. Records when the kick started (`kick_time`, None
+    if the controller never settled)."""
+
+    def __init__(self, tolerance_rad, hold_duration, kick_tau, kick_steps):
+        self.tolerance_rad = tolerance_rad
+        self.hold_duration = hold_duration
+        self.kick_tau = kick_tau
+        self.kick_steps = kick_steps
+        self.kick_time = None
+        self._t_history = []
+        self._theta_history = []
+        self._kicked = False
+        self._kick_frames_remaining = 0
+
+    def offset_for(self, t, theta, vphi=None, s=None, v=None):
+        self._t_history.append(t)
+        self._theta_history.append(theta)
+
+        if self._kick_frames_remaining > 0:
+            self._kick_frames_remaining -= 1
+            return self.kick_tau
+
+        if not self._kicked:
+            if held_from(self._t_history, self._theta_history, self.tolerance_rad, self.hold_duration) is not None:
+                self._kicked = True
+                self.kick_time = t
+                self._kick_frames_remaining = self.kick_steps - 1
+                return self.kick_tau
+
+        return 0.0
+
+
+def envelope_sweep(fmu_path, controller_factory, theta0_values_deg=None,
+                    tolerance_deg=TOLERANCE_DEG, hold_duration=HOLD_DURATION,
+                    duration=20.0, simulate_fn=simulate_run):
+    if theta0_values_deg is None:
+        theta0_values_deg = list(range(2, 92, 2))
+    tolerance_rad = math.radians(tolerance_deg)
+
+    results_by_theta0 = {}
+    consecutive_failures = 0
+    for theta0_deg in theta0_values_deg:
+        controller = controller_factory()
+        t, theta = simulate_fn(fmu_path, controller, theta0_deg=theta0_deg, duration=duration)
+        success = held_from(t, theta, tolerance_rad, hold_duration) is not None
+        results_by_theta0[theta0_deg] = success
+        consecutive_failures = 0 if success else consecutive_failures + 1
+        if consecutive_failures >= 2:
+            break
+
+    return {
+        "results_by_theta0": results_by_theta0,
+        "envelope_deg": find_capture_envelope(results_by_theta0),
+    }
+
+
+def reaction_time(fmu_path, controller_factory, theta0_values_deg=(2.0, 10.0),
+                   tolerance_deg=TOLERANCE_DEG, hold_duration=HOLD_DURATION,
+                   duration=20.0, simulate_fn=simulate_run):
+    tolerance_rad = math.radians(tolerance_deg)
+    settling_times = {}
+    trajectories = {}
+    for theta0_deg in theta0_values_deg:
+        controller = controller_factory()
+        t, theta = simulate_fn(fmu_path, controller, theta0_deg=theta0_deg, duration=duration)
+        settling_times[theta0_deg] = held_from(t, theta, tolerance_rad, hold_duration)
+        trajectories[theta0_deg] = (t, theta)
+    return {"settling_times": settling_times, "trajectories": trajectories}
+
+
+def robustness(fmu_path, controller_factory, theta0_deg=2.0,
+                tolerance_deg=TOLERANCE_DEG, hold_duration=HOLD_DURATION,
+                kick_tau=8.0, kick_steps=5, duration=20.0, simulate_fn=simulate_run):
+    tolerance_rad = math.radians(tolerance_deg)
+    injector = KickInjector(tolerance_rad, hold_duration, kick_tau, kick_steps)
+    controller = controller_factory()
+    t, theta = simulate_fn(
+        fmu_path, controller, theta0_deg=theta0_deg, duration=duration, on_frame=injector.offset_for
+    )
+
+    if injector.kick_time is None:
+        return {"kicked": False, "recovery_time": None, "kick_time": None, "trajectory": (t, theta)}
+
+    post_kick_t = [ti for ti in t if ti >= injector.kick_time]
+    post_kick_theta = [th for ti, th in zip(t, theta) if ti >= injector.kick_time]
+    recovered_at = held_from(post_kick_t, post_kick_theta, tolerance_rad, hold_duration)
+    recovery_time = None if recovered_at is None else recovered_at - injector.kick_time
+
+    return {
+        "kicked": True,
+        "recovery_time": recovery_time,
+        "kick_time": injector.kick_time,
+        "trajectory": (t, theta),
+    }
+
+
+def swingup_capture(fmu_path, controller_factory, tolerance_deg=TOLERANCE_DEG,
+                     hold_duration=HOLD_DURATION, duration=20.0, simulate_fn=simulate_run):
+    tolerance_rad = math.radians(tolerance_deg)
+    controller = controller_factory()
+    t, theta = simulate_fn(fmu_path, controller, theta0_deg=None, duration=duration)
+    capture_time = held_from(t, theta, tolerance_rad, hold_duration)
+    return {"capture_time": capture_time, "trajectory": (t, theta)}
