@@ -1041,11 +1041,20 @@ FMU_PATH = os.path.abspath("InvertedPendulumMB.fmu")
 def test_pd_holds_a_small_deviation_but_not_a_large_one():
     from benchmark_controllers import CONTROLLER_FACTORIES, envelope_sweep
 
+    # theta0=0.5 (not 2.0): a linear stability check of SimpleController's
+    # closed loop (A - B*K_pd eigenvalues, K_pd=[0,0,K_PHI,K_VPHI]) shows a
+    # positive real-part eigenvalue at both d_pend=0.15 and d_pend=0.01 —
+    # SimpleController's near-upright loop is linearly unstable, not just
+    # weakly damped. It still satisfies the 5-degree/1s hold criterion for
+    # small enough theta0 (confirmed empirically: holds through 1.5deg,
+    # fails at 2.0deg) because divergence takes longer than hold_duration
+    # to reach the tolerance boundary from a small enough start — 0.5deg
+    # gives comfortable margin under that ~1.5-2.0deg threshold.
     result = envelope_sweep(
-        FMU_PATH, CONTROLLER_FACTORIES["PD"], theta0_values_deg=[2, 60], duration=5.0
+        FMU_PATH, CONTROLLER_FACTORIES["PD"], theta0_values_deg=[0.5, 60], duration=5.0
     )
 
-    assert result["results_by_theta0"][2] is True
+    assert result["results_by_theta0"][0.5] is True
     assert result["results_by_theta0"][60] is False
 
 
@@ -1081,11 +1090,12 @@ Run: `pytest tests/test_benchmark_controllers.py -v`
 Expected: PASS (3 passed) if `InvertedPendulumMB.fmu` is present in the
 working directory — copy it in first if the worktree doesn't have it yet
 (gitignored, not part of the repo). If it genuinely fails (not skips),
-that is a real finding — the PD/LQR/SwingUp envelope and capture-time
-assumptions here come directly from prior AP3 review findings (PD ~2°,
-SwingUp captures in ~3-4s), so a failure means either a real regression or
-that those prior numbers need revisiting; do not loosen the assertions
-just to make it pass.
+that is a real finding — the LQR/SwingUp capture-time assumptions here
+come directly from prior AP3 review findings (LQR ~11°, SwingUp captures
+in ~3-4s), and PD's 0.5deg/60deg split comes from Task 2's empirical
+finding plus a direct eigenvalue check (see the comment on the PD test
+above), so a failure means either a real regression or that those numbers
+need revisiting; do not loosen the assertions just to make it pass.
 
 - [ ] **Step 3: Run the full benchmark for real and commit the generated report**
 
@@ -1098,13 +1108,20 @@ hang.
 
 Inspect the generated `AP3_Reglervergleich.md` for physical plausibility
 before committing:
-- PD's `Einzugsbereich` should be small (a few degrees) — LQR's larger
-  (roughly a low double-digit number of degrees) — consistent with prior
-  AP3 review findings.
+- PD's `Einzugsbereich` in the default 2°-step sweep (starting at 2°) is
+  expected to come back as "kein Erfolg im gesweepten Bereich" — this is
+  correct, not a bug: PD's real envelope under the current FMU is ~1.5-2°
+  (see the ruling in the SDD ledger and the comment in
+  `tests/test_benchmark_controllers.py`), below the sweep's first tested
+  point. LQR's envelope should be clearly larger (roughly a low
+  double-digit number of degrees) — consistent with prior AP3 review
+  findings.
 - The Swing-up capture time should be in the few-seconds range, not "kein
   Capture".
-- Reaction times at 2° should be fast for all three controllers; at 10°,
-  PD is expected to show "kein Einschwingen" while LQR/SwingUp settle.
+- Reaction times at 2° are expected to show "kein Einschwingen" for PD too
+  (same reason as above, not a regression from this task) while LQR/SwingUp
+  settle; at 10°, PD is expected to show "kein Einschwingen" as originally
+  planned.
 - Robustness: controllers that get kicked should mostly recover (a
   recovery time reported, not "keine Erholung"), though this is not a
   hard requirement — report what the real FMU run actually shows.
