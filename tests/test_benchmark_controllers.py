@@ -47,9 +47,21 @@ def test_swingup_captures_from_the_real_initial_condition():
     reason="InvertedPendulumMB.fmu not present (gitignored build artifact, copy manually into worktrees that run the game)",
 )
 def test_lqr_recovers_from_the_force_pulse():
-    from benchmark_controllers import CONTROLLER_FACTORIES, robustness
+    from benchmark_controllers import TOLERANCE_DEG, CONTROLLER_FACTORIES, robustness
 
     result = robustness(FMU_PATH, CONTROLLER_FACTORIES["LQR"], duration=10.0)
 
     assert result["kicked"] is True
     assert result["recovery_time"] is not None
+
+    # recovery_time alone is vacuous here: measured against the real FMU the
+    # pulse peaks at only ~1.02° for LQR, i.e. it never leaves the 5°
+    # tolerance band, so recovery_time is 0.00s by construction rather than
+    # by being fast. Pin the peak instead, so a future change that made the
+    # pulse a no-op (or removed the tolerance-band caveat's premise) fails
+    # loudly. Lower bound 0.5° = comfortable margin under the measured
+    # 1.02°; upper bound TOLERANCE_DEG documents *why* recovery is 0.00s.
+    peak = result["peak_post_kick_deviation_deg"]
+    assert peak is not None
+    assert peak > 0.5, f"kick barely perturbed the pendulum (peak {peak}°)"
+    assert peak < TOLERANCE_DEG
