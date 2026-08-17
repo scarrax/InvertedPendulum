@@ -10,6 +10,9 @@ fmu1
 # Simulation results
 sim_*.csv
 
+# Benchmark plots (regenerable via benchmark_controllers.py)
+benchmark_plots/
+
 # Python
 __pycache__/
 *.pyc

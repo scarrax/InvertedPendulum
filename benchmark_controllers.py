@@ -240,3 +240,205 @@ def swingup_capture(fmu_path, controller_factory, tolerance_deg=TOLERANCE_DEG,
     t, theta = simulate_fn(fmu_path, controller, theta0_deg=None, duration=duration)
     capture_time = held_from(t, theta, tolerance_rad, hold_duration)
     return {"capture_time": capture_time, "trajectory": (t, theta)}
+
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+
+def run_all_scenarios(fmu_path):
+    envelope = {
+        name: envelope_sweep(fmu_path, factory)
+        for name, factory in CONTROLLER_FACTORIES.items()
+        if name != "SwingUp"
+    }
+    reaction = {
+        name: reaction_time(fmu_path, factory)
+        for name, factory in CONTROLLER_FACTORIES.items()
+    }
+    robust = {
+        name: robustness(fmu_path, factory)
+        for name, factory in CONTROLLER_FACTORIES.items()
+    }
+    swingup = swingup_capture(fmu_path, CONTROLLER_FACTORIES["SwingUp"])
+    return {
+        "envelope": envelope,
+        "reaction_time": reaction,
+        "robustness": robust,
+        "swingup_capture": swingup,
+    }
+
+
+def generate_report(results):
+    lines = ["# AP3 Reglervergleich", ""]
+
+    lines.append("## 1. Kontext")
+    lines.append("")
+    lines.append(
+        "Vergleich der drei AP3-Regler (PD/SimpleController, LQR, SwingUp) "
+        "gegen die reale InvertedPendulumMB.fmu, gefordert durch die "
+        "Projektanweisung (AP3: 'Vergleich der Regler hinsichtlich "
+        "Stabilitaet, Reaktionszeit und Robustheit gegenueber "
+        "Stoerungen'). Details zur Methodik in "
+        "docs/superpowers/specs/2026-08-17-ap3-controller-comparison-design.md."
+    )
+    lines.append("")
+
+    lines.append("## 2. Methodik")
+    lines.append("")
+    lines.append(
+        f"Erfolgskriterium: |theta| < {TOLERANCE_DEG:.0f}° fuer mindestens "
+        f"{HOLD_DURATION:.1f}s ununterbrochen (theta = Abweichung von der "
+        "aufrechten Lage phi=pi). Stabilitaet wird als groesste "
+        "erfolgreiche Anfangsauslenkung im 2°-Sweep gemessen (PD/LQR), "
+        "Reaktionszeit als Einschwingzeit bei festen "
+        "Baseline-Auslenkungen (2°, 10°), Robustheit als Erholungszeit "
+        "nach einem Kraft-Puls auf tau (KICK_TAU=8.0 fuer KICK_STEPS=5 "
+        "Frames) waehrend des eingeschwungenen Zustands, und die "
+        "Swing-up-Faehigkeit als Einschwingzeit ab der realen "
+        "Spiel-Anfangsbedingung (phi0=0.75*pi/2)."
+    )
+    lines.append("")
+
+    lines.append("## 3. Stabilitaet (Einzugsbereich)")
+    lines.append("")
+    lines.append("| Regler | Einzugsbereich |")
+    lines.append("|---|---|")
+    for name, data in results["envelope"].items():
+        envelope_deg = data["envelope_deg"]
+        value = "kein Erfolg im gesweepten Bereich" if envelope_deg is None else f"{envelope_deg:.0f}°"
+        lines.append(f"| {name} | {value} |")
+    lines.append("| SwingUp | siehe Swing-up-Ergebnis unten |")
+    lines.append("")
+
+    lines.append("## 4. Reaktionszeit")
+    lines.append("")
+    lines.append("| Regler | 2° | 10° |")
+    lines.append("|---|---|---|")
+    for name, data in results["reaction_time"].items():
+        row = [name]
+        for theta0 in (2.0, 10.0):
+            t = data["settling_times"].get(theta0)
+            row.append("kein Einschwingen" if t is None else f"{t:.2f}s")
+        lines.append("| " + " | ".join(row) + " |")
+    lines.append("")
+
+    lines.append("## 5. Robustheit (Kraft-Puls)")
+    lines.append("")
+    lines.append("| Regler | Erholungszeit |")
+    lines.append("|---|---|")
+    for name, data in results["robustness"].items():
+        if not data["kicked"]:
+            value = "Regler hat vor dem Puls nicht eingeschwungen"
+        elif data["recovery_time"] is None:
+            value = "keine Erholung"
+        else:
+            value = f"{data['recovery_time']:.2f}s"
+        lines.append(f"| {name} | {value} |")
+    lines.append("")
+
+    lines.append("## 6. Swing-up ab realer Anfangsbedingung")
+    lines.append("")
+    capture_time = results["swingup_capture"]["capture_time"]
+    value = "kein Capture" if capture_time is None else f"{capture_time:.2f}s"
+    lines.append(f"SwingUp: {value}")
+    lines.append("PD/LQR: N/A (strukturell nicht loesbar, siehe Design-Dokument §3.4)")
+    lines.append("")
+
+    lines.append("## 7. Diskussion")
+    lines.append("")
+    lines.append(
+        "Die drei Regler unterscheiden sich strukturell in ihrem "
+        "Einzugsbereich (Tabelle oben): PD reagiert nur lokal um phi=pi, "
+        "LQR nutzt vollen Zustand (s, v, theta, theta_dot) und deckt "
+        "typischerweise einen groesseren Bereich ab, aber beide sind auf "
+        "eine Linearisierung um die aufrechte Lage angewiesen und koennen "
+        "die reale Spiel-Anfangsbedingung (~112.5° von der aufrechten "
+        "Lage) strukturell nicht erreichen (Abschnitt 6) - genau der in "
+        "der Projektanweisung genannte Vergleichspunkt fuer den "
+        "energiebasierten SwingUp-Regler (siehe AP1_Validierung.md §6 "
+        "fuer die zugrundeliegende Physik). Bei der Robustheit "
+        "(Abschnitt 5) zeigt die Erholungszeit nach dem Kraft-Puls, "
+        "welcher Regler eine Stoerung am schnellsten wieder ausregelt; "
+        "ein Regler, der vor dem Puls gar nicht erst eingeschwungen war, "
+        "wird als 'nicht eingeschwungen' statt mit einer Erholungszeit "
+        "gefuehrt und ist entsprechend gesondert zu lesen."
+    )
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_plots(results, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
+    names = list(results["envelope"].keys())
+    values = [(results["envelope"][n]["envelope_deg"] or 0) for n in names]
+    plt.figure()
+    plt.bar(names, values)
+    plt.ylabel("Einzugsbereich (Grad)")
+    plt.title("Stabilitaet: Einzugsbereich je Regler")
+    plt.savefig(os.path.join(output_dir, "envelope_sweep.png"))
+    plt.close()
+
+    for theta0 in (2.0, 10.0):
+        plt.figure()
+        for name, data in results["reaction_time"].items():
+            t, theta = data["trajectories"][theta0]
+            plt.plot(t, [math.degrees(th) for th in theta], label=name)
+        plt.axhline(5.0, color="gray", linestyle="--")
+        plt.axhline(-5.0, color="gray", linestyle="--")
+        plt.xlabel("t (s)")
+        plt.ylabel("theta (deg)")
+        plt.title(f"Reaktionszeit ab {theta0:.0f}°")
+        plt.legend()
+        plt.savefig(os.path.join(output_dir, f"reaction_time_{int(theta0)}deg.png"))
+        plt.close()
+
+    plt.figure()
+    for name, data in results["robustness"].items():
+        t, theta = data["trajectory"]
+        plt.plot(t, [math.degrees(th) for th in theta], label=name)
+        if data["kick_time"] is not None:
+            plt.axvline(data["kick_time"], color="red", linestyle=":")
+    plt.axhline(5.0, color="gray", linestyle="--")
+    plt.axhline(-5.0, color="gray", linestyle="--")
+    plt.xlabel("t (s)")
+    plt.ylabel("theta (deg)")
+    plt.title("Robustheit: Kraft-Puls-Reaktion")
+    plt.legend()
+    plt.savefig(os.path.join(output_dir, "robustness_kick.png"))
+    plt.close()
+
+    t, theta = results["swingup_capture"]["trajectory"]
+    plt.figure()
+    plt.plot(t, [math.degrees(th) for th in theta])
+    capture_time = results["swingup_capture"]["capture_time"]
+    if capture_time is not None:
+        plt.axvline(capture_time, color="red", linestyle=":")
+    plt.xlabel("t (s)")
+    plt.ylabel("theta (deg)")
+    plt.title("Swing-up ab realer Anfangsbedingung")
+    plt.savefig(os.path.join(output_dir, "swingup_capture.png"))
+    plt.close()
+
+
+if __name__ == "__main__":
+    fmu_path = os.path.abspath("InvertedPendulumMB.fmu")
+    if not os.path.exists(fmu_path):
+        raise SystemExit(
+            "InvertedPendulumMB.fmu not found in project root. "
+            "Copy the (gitignored) FMU into place before running this benchmark."
+        )
+
+    results = run_all_scenarios(fmu_path)
+
+    report = generate_report(results)
+    with open("AP3_Reglervergleich.md", "w", encoding="utf-8") as f:
+        f.write(report)
+
+    generate_plots(results, "benchmark_plots")
+
+    print("Wrote AP3_Reglervergleich.md and benchmark_plots/")
