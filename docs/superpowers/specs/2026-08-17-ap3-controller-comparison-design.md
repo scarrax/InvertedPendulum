@@ -30,7 +30,7 @@ Controller-Klassen und die `Controller`-Basisklasse bleiben unangetastet
 |---|---|
 | Konsument des Vergleichs? | Nur AP5 (schriftliche Ausarbeitung) — kein neues Spiel-Feature |
 | Toleranzzone für Erfolg? | Bestehende 5°-Scoring-Zone (`tight_bonus_zone` in `compute_score_increment`) |
-| Störform für Robustheitstest? | Einmaliger Geschwindigkeits-Kick auf `vphi` (FMU-State direkt gesetzt) |
+| Störform für Robustheitstest? | Kraft-Puls auf `tau` (siehe §3.3 — ursprünglich geplanter vphi-Kick ist gegen die reale Co-Simulation-FMU technisch nicht umsetzbar) |
 | Output-Format? | Markdown-Report + PNG-Plots (matplotlib, neue Dependency) |
 
 ## 2. Architektur
@@ -46,11 +46,17 @@ der Rest des Projekts):
   `inner_dt = dt/SUBSTEPS`, `tau` wird einmal pro äußerem 50Hz-Frame gesetzt
   und über die Substeps konstant gehalten (bindende Konvention aus
   `CLAUDE.md`).
-- initialisiert für jedes Szenario den FMU-State direkt (nicht über
-  `reset()`+Spielstart), um beliebige Anfangsauslenkungen/Kicks zu setzen —
-  siehe `tests/test_numerical_stability.py` für das bereits precedente
-  Pattern, FMU-States per `fmu.setReal(...)` vor dem ersten `doStep()` zu
-  setzen.
+- setzt für jedes Szenario die Anfangsauslenkung über die FMU-Parameter
+  `phi0`/`vphi0` (`causality=parameter, initial=exact`, gehört zum
+  `InvertedPendulumMB.mo`-Modell selbst — nicht zu verwechseln mit den
+  Ausgangsgrößen `phi`/`vphi`, die `causality=output, initial=calculated`
+  sind und sich **nicht** von außen überschreiben lassen, weder vor noch
+  während der Simulation — empirisch gegen die reale FMU verifiziert).
+  `phi0`/`vphi0` müssen wie jeder FMI2-Parameter mit `variability=fixed`
+  vor `enterInitializationMode()` gesetzt werden, danach gilt der normale
+  Lifecycle aus `tests/test_numerical_stability.py`
+  (`instantiate()` → `setupExperiment()` → `enterInitializationMode()`/
+  `exitInitializationMode()` → `doStep()`-Schleife).
 - berechnet pro Szenario Kennzahlen über reine, unit-testbare Funktionen
   (siehe §4) und sammelt sie in einer Datenstruktur pro Regler.
 - schreibt am Ende `AP3_Reglervergleich.md` (Report) und PNGs in
@@ -107,16 +113,26 @@ Erfolgskriteriums. Max. Laufzeit 20s; wird das Kriterium nicht erreicht,
 wird "kein Einschwingen" statt einer Zeit reportet (erwartet für PD bei
 10°).
 
-### 3.3 Robustheit — Geschwindigkeits-Kick
+### 3.3 Robustheit — Kraft-Puls auf tau
+
+Ein direkter Geschwindigkeits-Kick auf `vphi` ist gegen die reale
+Co-Simulation-FMU nicht umsetzbar (siehe §2) — `vphi` ist eine reine,
+solver-interne Ausgabegröße und lässt sich zur Laufzeit nicht von außen
+setzen (empirisch verifiziert: ein `fmu.setReal` auf `vphi` zwischen zwei
+`doStep()`-Aufrufen wird vom nächsten Schritt vollständig ignoriert).
+Stattdessen wird die Störung über den einzigen zur Laufzeit echten
+FMU-Input injiziert: `tau`.
 
 Ablauf pro Regler: Simulation startet bei `theta0 = 2°` (im Einzugsbereich
 aller drei), läuft bis das Erfolgskriterium erreicht ist (Regler ist
-eingeschwungen), dann wird bei genau diesem Zeitpunkt ein einmaliger Kick
-`vphi += KICK_MAGNITUDE` (fester Wert, `KICK_MAGNITUDE = 3.0 rad/s`, in
-derselben Größenordnung wie die `CAPTURE_VPHI=2.0`-Schwelle des
-SwingUp-Reglers, aber deutlich über Rauschen) per `fmu.setReal` auf den
-`vphi`-State injiziert — ein einzelner Zeitschritt, kein Dauerstoß. Danach
-läuft die Simulation weiter (max. 20s ab Kick) und die Erholungszeit bis
+eingeschwungen). Ab diesem Zeitpunkt wird für `KICK_STEPS = 5` aufeinander-
+folgende äußere Frames (= 0,1s bei `dt=0,02`) ein fester Zusatz-Offset
+`KICK_TAU = 8.0` additiv zum normalen Regler-`tau` addiert (Summe weiterhin
+auf `±MAX_TAU=10.0` begrenzt wie im Spiel), danach läuft der Regler wieder
+unverändert weiter. `KICK_TAU=8.0` ist deutlich über der stationären
+Regelkraft im eingeschwungenen Zustand (nahe 0), aber unter `MAX_TAU`, so
+dass der Puls selbst nicht schon in Sättigung startet. Danach läuft die
+Simulation weiter (max. 20s ab Ende des Pulses) und die Erholungszeit bis
 zum erneuten Erfüllen des Erfolgskriteriums wird gemessen. Wird das
 Kriterium nicht erneut erreicht: "keine Erholung" reportet.
 
