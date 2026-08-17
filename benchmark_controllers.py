@@ -6,6 +6,11 @@ for the full methodology.
 """
 
 import math
+import os
+import shutil
+
+from fmpy import extract, read_model_description
+from fmpy.fmi2 import FMU2Slave
 
 # Success criterion shared across all scenarios: a controller "holds" the
 # upright position from the moment |theta| stays below TOLERANCE_DEG for at
@@ -44,3 +49,77 @@ def find_capture_envelope(results_by_theta0):
         else:
             break
     return best
+
+
+def simulate_run(fmu_path, controller, theta0_deg=None, vphi0=0.0, duration=20.0, on_frame=None):
+    # Sub-stepped FMU co-simulation loop, same pattern as run_game() in
+    # pendulum_game_controlled.py: explicit-Euler at the full 0.02s step
+    # numerically injects energy into the lightly-damped pendulum, so tau
+    # is held constant across SUBSTEPS smaller inner steps.
+    dt = 0.02
+    SUBSTEPS = 10
+    MAX_TAU = 10.0
+    substep_dt = dt / SUBSTEPS
+
+    unzipdir = extract(fmu_path)
+    desc = read_model_description(unzipdir)
+    fmu = FMU2Slave(
+        guid=desc.guid,
+        unzipDirectory=unzipdir,
+        modelIdentifier=desc.coSimulation.modelIdentifier,
+    )
+    fmu.instantiate()
+    fmu.setupExperiment(startTime=0.0)
+
+    def ref(name):
+        for var in desc.modelVariables:
+            if var.name == name:
+                return var.valueReference
+        raise Exception(f"'{name}' not found in FMU")
+
+    if theta0_deg is not None:
+        fmu.setReal([ref("phi0")], [math.pi + math.radians(theta0_deg)])
+        fmu.setReal([ref("vphi0")], [vphi0])
+
+    fmu.enterInitializationMode()
+    fmu.exitInitializationMode()
+
+    tau_ref = ref("tau")
+    s_ref = ref("s")
+    v_ref = ref("v")
+    phi_ref = ref("phi")
+    vphi_ref = ref("vphi")
+
+    def wrapped_theta(phi):
+        return (phi % (2 * math.pi)) - math.pi
+
+    t = 0.0
+    t_history = [0.0]
+    theta_history = [wrapped_theta(fmu.getReal([phi_ref])[0])]
+
+    try:
+        while t < duration:
+            phi = fmu.getReal([phi_ref])[0]
+            vphi = fmu.getReal([vphi_ref])[0]
+            s = fmu.getReal([s_ref])[0]
+            v = fmu.getReal([v_ref])[0]
+            theta = wrapped_theta(phi)
+
+            tau = controller.compute(phi, vphi, s, v)
+            if on_frame is not None:
+                tau += on_frame(t, theta, vphi, s, v)
+            tau = max(-MAX_TAU, min(MAX_TAU, tau))
+
+            fmu.setReal([tau_ref], [tau])
+            for _ in range(SUBSTEPS):
+                t += substep_dt
+                fmu.doStep(currentCommunicationPoint=t, communicationStepSize=substep_dt)
+
+            t_history.append(t)
+            theta_history.append(wrapped_theta(fmu.getReal([phi_ref])[0]))
+    finally:
+        fmu.terminate()
+        fmu.freeInstance()
+        shutil.rmtree(unzipdir)
+
+    return t_history, theta_history
