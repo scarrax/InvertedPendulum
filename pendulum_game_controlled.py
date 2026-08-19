@@ -561,6 +561,15 @@ def run_game(screen):
                 return var.valueReference
         raise Exception(f"'{name}' not found in FMU")
 
+    difficulty = "Standard"
+    value_refs = {
+        "m_cart": ref("m_cart"),
+        "m_pend": ref("m_pend"),
+        "d_cart": ref("d_cart"),
+        "d_pend": ref("d_pend"),
+    }
+    apply_difficulty_physics(fmu, value_refs, difficulty)
+
     fmu.enterInitializationMode()
     fmu.exitInitializationMode()
 
@@ -586,6 +595,8 @@ def run_game(screen):
     auto_mode = False
     paused = False
     stable_streak = 0.0
+    hint_text = None
+    hint_frames_left = 0
 
     s = 0.0
     v = 0.0
@@ -600,7 +611,11 @@ def run_game(screen):
     controller_name = "PD"
     clock = pygame.time.Clock()
 
-    redraw(screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused, controller_display_name(controllers[controller_name], controller_name))
+    redraw(
+        screen, time, dt, 0, 0.25, s, v, [phi], [vphi], auto_mode, paused,
+        controller_display_name(controllers[controller_name], controller_name),
+        difficulty=difficulty, hint=hint_text,
+    )
     pygame.display.flip()
     overlay_leaderboard(screen)
 
@@ -611,32 +626,51 @@ def run_game(screen):
                 pygame.quit()
                 exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_h:
-                auto_mode = not auto_mode
+                if difficulty == "Standard":
+                    auto_mode = not auto_mode
+                else:
+                    hint_text = "Auto nur bei Standard"
+                    hint_frames_left = 90
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 paused = not paused
             if event.type == pygame.KEYDOWN and event.key == pygame.K_l:
                 names = list(controllers)
                 controller_name = names[(names.index(controller_name) + 1) % len(names)]
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                fmu.reset()
-                fmu.setupExperiment(startTime=0.0)
-                fmu.enterInitializationMode()
-                fmu.exitInitializationMode()
+                s, v, phi, vphi = reset_round(fmu, value_refs, difficulty, s_ref, v_ref, phi_ref, vphi_ref)
                 time = 0.0
                 score = 0.0
                 stable_streak = 0.0
                 auto_time = 0.0
                 manual_time = 0.0
                 taus, phis = [], []
-                s = fmu.getReal([s_ref])[0]
-                v = fmu.getReal([v_ref])[0]
-                phi = fmu.getReal([phi_ref])[0]
-                vphi = fmu.getReal([vphi_ref])[0]
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_d:
+                if auto_mode:
+                    hint_text = "Nur im Manual-Modus änderbar"
+                    hint_frames_left = 90
+                else:
+                    difficulty = next_difficulty(difficulty)
+                    s, v, phi, vphi = reset_round(fmu, value_refs, difficulty, s_ref, v_ref, phi_ref, vphi_ref)
+                    time = 0.0
+                    score = 0.0
+                    stable_streak = 0.0
+                    auto_time = 0.0
+                    manual_time = 0.0
+                    taus, phis = [], []
+
+        if hint_frames_left > 0:
+            hint_frames_left -= 1
+            if hint_frames_left == 0:
+                hint_text = None
 
         if paused:
             plot_taus = taus if taus else [0.0]
             plot_phis = phis if phis else [phi - math.pi]
-            redraw(screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused, controller_display_name(controllers[controller_name], controller_name))
+            redraw(
+                screen, time, dt, score, 0.25, s, v, plot_taus, plot_phis, auto_mode, paused,
+                controller_display_name(controllers[controller_name], controller_name),
+                difficulty=difficulty, hint=hint_text,
+            )
             pygame.display.flip()
             clock.tick(60)
             continue
@@ -668,12 +702,16 @@ def run_game(screen):
             angle -= 2 * math.pi
         angle = abs(angle)
 
-        if angle <= math.radians(5):
+        level = DIFFICULTY_LEVELS[difficulty]
+        bonus_zone = math.radians(level["bonus_zone_deg"])
+        tight_bonus_zone = math.radians(level["tight_bonus_zone_deg"])
+
+        if angle <= tight_bonus_zone:
             stable_streak += dt
         else:
             stable_streak = 0.0
 
-        score += compute_score_increment(angle, stable_streak)
+        score += compute_score_increment(angle, stable_streak, bonus_zone=bonus_zone, tight_bonus_zone=tight_bonus_zone)
 
         phis.append(phi - math.pi)
         taus.append(tau)
@@ -681,14 +719,18 @@ def run_game(screen):
             phis.pop(0)
             taus.pop(0)
 
-        redraw(screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused, controller_display_name(controllers[controller_name], controller_name))
+        redraw(
+            screen, time, dt, score, 0.25, s, v, taus, phis, auto_mode, paused,
+            controller_display_name(controllers[controller_name], controller_name),
+            difficulty=difficulty, hint=hint_text,
+        )
         pygame.display.flip()
         clock.tick(60)
 
     fmu.terminate()
     fmu.freeInstance()
     shutil.rmtree(unzipdir)
-    return score, classify_mode(auto_time, manual_time)
+    return score, classify_mode(auto_time, manual_time), difficulty
 
 
 def main():
@@ -701,9 +743,9 @@ def main():
     pygame.mouse.set_visible(True)
 
     while True:
-        score, mode = run_game(screen)
+        score, mode, difficulty = run_game(screen)
         player_name = get_player_name(screen)
-        update_leaderboard(score, player_name, mode)
+        update_leaderboard(score, player_name, mode, difficulty)
 
 
 if __name__ == "__main__":
