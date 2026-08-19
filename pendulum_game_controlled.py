@@ -13,7 +13,7 @@ import numpy as np
 import scipy.linalg
 
 
-def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False, controller_name="PD"):
+def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False, paused=False, controller_name="PD", difficulty="Standard", hint=None):
     width, height = screen.get_size()
     scale = min(width, height)
 
@@ -182,20 +182,49 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
         size=math.ceil(scale / 42),
     )
 
+    difficulty_rect = pygame.Rect(
+        width - math.ceil(scale * 0.30),
+        math.ceil(scale * 0.02) + badge_rect.height + math.ceil(scale * 0.01),
+        math.ceil(scale * 0.28),
+        math.ceil(scale * 0.06),
+    )
+    pygame.draw.rect(screen, blau, difficulty_rect, border_radius=8)
+    pygame.draw.rect(screen, dunkel, difficulty_rect, 2, border_radius=8)
+    display(
+        f"Difficulty: {difficulty}  [D]",
+        difficulty_rect.center,
+        color=(255, 255, 255),
+        size=math.ceil(scale / 42),
+    )
+
     if paused:
         pause_rect = pygame.Rect(
             width - math.ceil(scale * 0.30),
-            math.ceil(scale * 0.02) + badge_rect.height + math.ceil(scale * 0.01),
+            math.ceil(scale * 0.02) + badge_rect.height + difficulty_rect.height + 2 * math.ceil(scale * 0.01),
             math.ceil(scale * 0.28),
             math.ceil(scale * 0.06),
         )
         pygame.draw.rect(screen, dunkel, pause_rect, border_radius=8)
-        pygame.draw.rect(screen, "black", pause_rect, 2, border_radius=8)
         display(
             "PAUSED  [P to resume]",
             pause_rect.center,
             color=(255, 255, 255),
             size=math.ceil(scale / 42),
+        )
+
+    if hint:
+        hint_rect = pygame.Rect(
+            width // 2 - math.ceil(scale * 0.20),
+            math.ceil(scale * 0.02),
+            math.ceil(scale * 0.40),
+            math.ceil(scale * 0.05),
+        )
+        pygame.draw.rect(screen, dunkel, hint_rect, border_radius=8)
+        display(
+            hint,
+            hint_rect.center,
+            color=(255, 255, 255),
+            size=math.ceil(scale / 46),
         )
 
 
