@@ -80,8 +80,10 @@ def test_reset_round_applies_difficulty_and_returns_fresh_state():
     s, v, phi, vphi = reset_round(fmu, value_refs, "Schwer", s_ref, v_ref, phi_ref, vphi_ref)
 
     level = DIFFICULTY_LEVELS["Schwer"]
+    assert math.isclose(fmu.getReal([value_refs["m_cart"]])[0], level["m_cart"])
     assert math.isclose(fmu.getReal([value_refs["m_pend"]])[0], level["m_pend"])
     assert math.isclose(fmu.getReal([value_refs["d_cart"]])[0], level["d_cart"])
+    assert math.isclose(fmu.getReal([value_refs["d_pend"]])[0], level["d_pend"])
     # Ein frischer Reset startet beim Modell-Default-Anfangswinkel (~67.5°
     # aus der hängenden Ruhelage), unabhängig von den Difficulty-Physik-Werten.
     assert math.isclose(math.degrees(phi), 67.5, rel_tol=1e-3)

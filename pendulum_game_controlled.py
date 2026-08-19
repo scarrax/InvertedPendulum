@@ -205,6 +205,7 @@ def redraw(screen, time, dt, score, precision, s, v, taus, phis, auto_mode=False
             math.ceil(scale * 0.06),
         )
         pygame.draw.rect(screen, dunkel, pause_rect, border_radius=8)
+        pygame.draw.rect(screen, dunkel, pause_rect, 2, border_radius=8)
         display(
             "PAUSED  [P to resume]",
             pause_rect.center,
@@ -295,7 +296,7 @@ def overlay_leaderboard(screen, filename="leaderboard.csv", top_n=10):
     panel.blit(title, (panel_w // 2 - title.get_width() // 2, 0))
     for i, row in df.iterrows():
         rendered = entry_font.render(
-            f"{i+1:>2}. {row['Name']:10} {row['Score']:.2f}  [{row['Mode']}]",
+            f"{i+1:>2}. {row['Name']:10} {row['Score']:.2f}  [{row['Mode']} / {row['Difficulty']}]",
             True,
             (255, 220, 180),
         )

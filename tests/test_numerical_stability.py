@@ -3,6 +3,8 @@ import os
 
 import pytest
 
+from pendulum_game_controlled import apply_difficulty_physics
+
 FMU_PATH = os.path.abspath("InvertedPendulumMB.fmu")
 
 
@@ -10,7 +12,8 @@ FMU_PATH = os.path.abspath("InvertedPendulumMB.fmu")
     not os.path.exists(FMU_PATH),
     reason="InvertedPendulumMB.fmu not present (gitignored build artifact, copy manually into worktrees that run the game)",
 )
-def test_substepped_free_swing_stays_energy_bounded():
+@pytest.mark.parametrize("difficulty", ["Leicht", "Standard", "Schwer"])
+def test_substepped_free_swing_stays_energy_bounded(difficulty):
     from fmpy import read_model_description, extract
     from fmpy.fmi2 import FMU2Slave
 
@@ -29,6 +32,14 @@ def test_substepped_free_swing_stays_energy_bounded():
             if var.name == name:
                 return var.valueReference
         raise Exception(f"'{name}' not found in FMU")
+
+    value_refs = {
+        "m_cart": ref("m_cart"),
+        "m_pend": ref("m_pend"),
+        "d_cart": ref("d_cart"),
+        "d_pend": ref("d_pend"),
+    }
+    apply_difficulty_physics(fmu, value_refs, difficulty)
 
     fmu.enterInitializationMode()
     fmu.exitInitializationMode()
