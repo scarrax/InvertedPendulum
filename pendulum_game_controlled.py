@@ -457,10 +457,8 @@ def next_difficulty(current):
 K_STABILITY = 0.5
 
 
-def compute_score_increment(angle, stable_streak):
+def compute_score_increment(angle, stable_streak, bonus_zone=math.radians(15), tight_bonus_zone=math.radians(5)):
     max_angle = math.pi / 2
-    bonus_zone = math.radians(15)
-    tight_bonus_zone = math.radians(5)
 
     increment = 0.0
     if angle <= max_angle:

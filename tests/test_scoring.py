@@ -34,3 +34,21 @@ def test_stability_bonus_isolated():
     without_streak = compute_score_increment(angle, stable_streak=0.0)
 
     assert math.isclose(with_streak - without_streak, K_STABILITY * 2.0)
+
+
+def test_custom_bonus_zone_widens_bonus_range():
+    angle = math.radians(18)  # außerhalb der Standard-15°-Zone, innerhalb einer 20°-Zone
+    default_increment = compute_score_increment(angle, stable_streak=0.0)
+    widened_increment = compute_score_increment(
+        angle, stable_streak=0.0, bonus_zone=math.radians(20), tight_bonus_zone=math.radians(5)
+    )
+    assert widened_increment > default_increment
+
+
+def test_custom_tight_bonus_zone_narrows_bonus_range():
+    angle = math.radians(4)  # innerhalb der Standard-5°-Zone, außerhalb einer 3°-Zone
+    default_increment = compute_score_increment(angle, stable_streak=0.0)
+    narrowed_increment = compute_score_increment(
+        angle, stable_streak=0.0, bonus_zone=math.radians(15), tight_bonus_zone=math.radians(3)
+    )
+    assert narrowed_increment < default_increment
