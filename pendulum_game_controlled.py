@@ -419,6 +419,41 @@ class SwingUpController(Controller):
         return max(-self.MAX_TAU, min(self.MAX_TAU, tau))
 
 
+DIFFICULTY_ORDER = ("Leicht", "Standard", "Schwer")
+
+DIFFICULTY_LEVELS = {
+    "Leicht": {
+        "bonus_zone_deg": 20.0,
+        "tight_bonus_zone_deg": 8.0,
+        "m_cart": 5.0,
+        "m_pend": 0.3,
+        "d_cart": 0.30,
+        "d_pend": 0.05,
+    },
+    "Standard": {
+        "bonus_zone_deg": 15.0,
+        "tight_bonus_zone_deg": 5.0,
+        "m_cart": 5.0,
+        "m_pend": 0.5,
+        "d_cart": 0.15,
+        "d_pend": 0.01,
+    },
+    "Schwer": {
+        "bonus_zone_deg": 8.0,
+        "tight_bonus_zone_deg": 3.0,
+        "m_cart": 5.0,
+        "m_pend": 0.9,
+        "d_cart": 0.05,
+        "d_pend": 0.01,
+    },
+}
+
+
+def next_difficulty(current):
+    idx = DIFFICULTY_ORDER.index(current)
+    return DIFFICULTY_ORDER[(idx + 1) % len(DIFFICULTY_ORDER)]
+
+
 K_STABILITY = 0.5
 
 
