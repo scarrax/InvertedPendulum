@@ -457,8 +457,8 @@ DIFFICULTY_LEVELS = {
         "tight_bonus_zone_deg": 8.0,
         "m_cart": 5.0,
         "m_pend": 0.3,
-        "d_cart": 0.30,
-        "d_pend": 0.05,
+        "d_cart": 0.08,
+        "d_pend": 0.01,
     },
     "Standard": {
         "bonus_zone_deg": 15.0,

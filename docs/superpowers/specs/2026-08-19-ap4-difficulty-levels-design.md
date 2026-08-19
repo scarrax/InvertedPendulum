@@ -30,13 +30,13 @@ Drei auswählbare Schwierigkeitsstufen (Leicht / Standard / Schwer), die im manu
 
 | Stufe | bonus_zone | tight_bonus_zone | m_cart | m_pend | d_cart | d_pend |
 |---|---|---|---|---|---|---|
-| Leicht | 20° | 8° | 5.0 | 0.3 | 0.30 | 0.05 |
+| Leicht | 20° | 8° | 5.0 | 0.3 | 0.08 | 0.01 |
 | **Standard** | 15° | 5° | 5.0 | 0.5 | 0.15 | 0.01 |
 | Schwer | 8° | 3° | 5.0 | 0.9 | 0.05 | 0.01 |
 
-`Standard` ist bit-identisch mit den bisherigen AP3-Werten (Rückwärtskompatibilität zum bestehenden Leaderboard und zu den AP3-Regler-Annahmen). `Leicht` reduziert die Pendelmasse und erhöht die Dämpfung (leichter zu halten, schneller einschwingend) bei breiteren Toleranzzonen. `Schwer` erhöht die Pendelmasse und reduziert die Wagen-Dämpfung (unruhigere Regelstrecke) bei engeren Toleranzzonen.
+`Standard` ist bit-identisch mit den bisherigen AP3-Werten (Rückwärtskompatibilität zum bestehenden Leaderboard und zu den AP3-Regler-Annahmen). `Leicht` reduziert die Pendelmasse UND die Dämpfung (leichter hochzuschwingen und zu halten) bei breiteren Toleranzzonen. `Schwer` erhöht die Pendelmasse und reduziert die Wagen-Dämpfung (unruhigere Regelstrecke) bei engeren Toleranzzonen.
 
-Diese Zahlen sind ein informierter Ausgangspunkt, kein exakt hergeleitetes Ergebnis. Die Implementierung enthält einen kurzen Playtest-/Sanity-Check pro Stufe (manuell gespielt, ggf. auch eine kurze headless-Simulation mit fester Steuerungssequenz), um zu bestätigen, dass sich die Stufen spürbar unterschiedlich anfühlen bzw. verhalten — analog zum Vorgehen bei der `d_pend`/`K_ENERGY`-Abstimmung in AP3 Teil 2. Falls der Check deutliche Fehleinschätzungen aufdeckt (z. B. "Schwer" fühlt sich nicht schwerer an), werden die Werte in derselben Task angepasst, nicht die Architektur.
+Diese Zahlen sind ein informierter Ausgangspunkt, kein exakt hergeleitetes Ergebnis. Der im Plan vorgesehene Playtest-/Sanity-Check hat genau das getan, wofür er gedacht war: der ursprüngliche Leicht-Wert (`d_cart=0.30`, `d_pend=0.05`, höhere Dämpfung als Standard) erwies sich beim interaktiven Testen als Fehleinschätzung — das Spiel startet ca. 112° von der aufrechten Lage entfernt (außerhalb der Punktezone, die erst bei ≤90° beginnt), sodass jede Runde zunächst ein manuelles Hochpumpen der Schwingung erfordert. Höhere Dämpfung frisst dabei die durch die Bang-Bang-Steuerung eingebrachte Energie wieder auf und macht das Hochschwingen selbst schwerer — mit dem gemessenen Resultat, dass "Leicht" real gespielt einen Score von 0.0 lieferte (schwerer als "Schwer"). Korrigiert auf niedrigere Dämpfung (unter Standard, statt darüber); eine Nachprüfung mit dem bestehenden `SwingUpController`-Energiepump-Regelgesetz als Referenz (nicht als Auto-Modus-Feature, sondern als headless physikalischer Machbarkeits-Check) bestätigt: Leicht erreicht die Punktezone (≤90°) jetzt nach ~1.5s und vollständiges Balancieren nach ~5s, gegenüber Standard mit ~1.5s/~4s und Schwer, das innerhalb von 40s gar nicht vollständig einfängt (Plateau bei ~17° vom Scheitelpunkt) — die drei Stufen sind damit tatsächlich spürbar unterschiedlich, in der beabsichtigten Reihenfolge.
 
 ## Mechanik
 
