@@ -492,6 +492,28 @@ def controller_display_name(controller, name):
     return f"SU:{submode}"
 
 
+def apply_difficulty_physics(fmu, value_refs, difficulty):
+    level = DIFFICULTY_LEVELS[difficulty]
+    fmu.setReal(
+        [value_refs["m_cart"], value_refs["m_pend"], value_refs["d_cart"], value_refs["d_pend"]],
+        [level["m_cart"], level["m_pend"], level["d_cart"], level["d_pend"]],
+    )
+
+
+def reset_round(fmu, value_refs, difficulty, s_ref, v_ref, phi_ref, vphi_ref):
+    fmu.reset()
+    fmu.setupExperiment(startTime=0.0)
+    apply_difficulty_physics(fmu, value_refs, difficulty)
+    fmu.enterInitializationMode()
+    fmu.exitInitializationMode()
+    return (
+        fmu.getReal([s_ref])[0],
+        fmu.getReal([v_ref])[0],
+        fmu.getReal([phi_ref])[0],
+        fmu.getReal([vphi_ref])[0],
+    )
+
+
 def run_game(screen):
     fmu_path = os.path.abspath("InvertedPendulumMB.fmu")
     unzipdir = extract(fmu_path)
