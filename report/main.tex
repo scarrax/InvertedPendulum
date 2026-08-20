@@ -1,0 +1,83 @@
+% Schriftliche Ausarbeitung -- AP5 (Projektseminar, Computational Engineering M.Sc.)
+% Gliederung gemaess Projektanweisung_Invertiertes_Pendel.md Abschnitt 3 (AP5).
+% Formatierung gemaess Layout.pdf (Fachbereich IuM, Dr. Rzehak).
+
+\documentclass[12pt,oneside,parskip=half]{scrbook}
+
+% --- Sprache & Anfuehrungszeichen ---
+\usepackage[ngerman]{babel}
+\usepackage[autostyle=true,german=quotes]{csquotes}
+
+% --- Seitenlayout: Raender 2,5/2,5/2 cm, 1,5-zeilig (Layout.pdf) ---
+\usepackage[top=2.5cm,left=2.5cm,right=2.5cm,bottom=2cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Schrift: Palatino als LaTeX-Pendant zu "Palatino Linotype" (Layout.pdf) ---
+\usepackage[T1]{fontenc}
+\usepackage{mathpazo}
+
+% --- Mathematik: nummerierte, am "=" ausgerichtete Formeln (Layout.pdf, DIN 1338) ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{siunitx}
+
+% --- Abbildungen & Tabellen ---
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{booktabs}
+\graphicspath{{images/}}
+
+% --- Code-Ausschnitte (Python / Modelica) ---
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  captionpos=b,
+}
+
+% --- Literaturverzeichnis ---
+\usepackage[backend=biber,style=numeric,sorting=nyt]{biblatex}
+\addbibresource{references.bib}
+
+% --- Lebende Kolumnentitel (Layout.pdf: "ggf. Hauptueberschriften als lebende Kolumnentitel") ---
+\usepackage[headsepline,automark]{scrlayer-scrpage}
+\clearscrheadfoot
+\ihead{\headmark}
+\ohead{\pagemark}
+\pagestyle{scrheadings}
+
+% --- Verlinkung (moeglichst spaet laden) ---
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+\usepackage{cleveref}
+
+\begin{document}
+
+\input{titlepage}
+
+\frontmatter
+\tableofcontents
+% \listoffigures
+% \listoftables
+
+\mainmatter
+\input{chapters/01_einleitung}
+\input{chapters/02_grundlagen}
+\input{chapters/03_modellierung}
+\input{chapters/04_spielmechanik}
+\input{chapters/05_reglerentwurf}
+\input{chapters/06_schwierigkeitsgrade}
+\input{chapters/07_ergebnisse}
+\input{chapters/08_fazit}
+
+\backmatter
+\printbibliography[title={Literaturverzeichnis}]
+
+% Anhang (zaehlt laut Layout.pdf nicht zum 20-Seiten-Textumfang, bleibt unnummeriert):
+% \input{chapters/anhang}
+
+\end{document}

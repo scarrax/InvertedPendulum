@@ -1,0 +1,16 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.toc
+*.out
+*.bbl
+*.bcf
+*.blg
+*.run.xml
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+chapters/*.aux
+
+# Compiled output (regenerate via latexmk / Overleaf, not committed)
+/main.pdf
