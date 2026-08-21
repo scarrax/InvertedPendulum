@@ -415,21 +415,39 @@ class SwingUpController(Controller):
 
     # Tuning constants for the real start condition (phi0=67.5 deg, see
     # InvertedPendulumMB.mo); adjustable if interactive testing shows they need retuning.
+    # These (K_ENERGY and the hysteresis thresholds below) are tuned/verified for the
+    # Euler-solver FMU (InvertedPendulumMB.fmu, the one the shipped game uses) and stay
+    # the defaults here. A swept comparison against the Linux CVODE FMU
+    # (InvertedPendulumMB_cvode_linux.fmu, WSL-only, see CLAUDE.md backlog
+    # "CVODE-Solver-Vergleich via WSL") found K_ENERGY=25.0 + CAPTURE_THETA=5deg capture
+    # ~6% faster under CVODE (5.84s -> 5.48s from the real start condition) before
+    # plateauing/reversing (K_ENERGY beyond ~40 has no further effect: tau saturates at
+    # MAX_TAU regardless; CAPTURE_THETA beyond ~15deg actively hurts, since switching to
+    # LQR too early causes a false start that falls back to swing-up via the
+    # RELEASE_THETA hysteresis). CAPTURE_VPHI had no measurable effect in [1.0, 3.0] for
+    # this trajectory. The remaining gap to Euler's 4.20s is actuator-saturation-bound,
+    # not closable by retuning. Pass overrides via the constructor (e.g.
+    # PENDULUM_SWINGUP_K_ENERGY) when running against the CVODE FMU; never change these
+    # defaults, which is what the shipped/graded game uses.
     K_ENERGY = 10.0
     CAPTURE_THETA = math.radians(10)
     CAPTURE_VPHI = 2.0
     RELEASE_THETA = math.radians(25)
 
-    def __init__(self):
+    def __init__(self, k_energy=None, capture_theta=None, capture_vphi=None, release_theta=None):
         self.lqr = LQRController()
         self.mode = "swingup"
+        self.k_energy = self.K_ENERGY if k_energy is None else k_energy
+        self.capture_theta = self.CAPTURE_THETA if capture_theta is None else capture_theta
+        self.capture_vphi = self.CAPTURE_VPHI if capture_vphi is None else capture_vphi
+        self.release_theta = self.RELEASE_THETA if release_theta is None else release_theta
 
     def compute(self, phi_fmu, vphi, s, v):
         theta = (phi_fmu % (2 * math.pi)) - math.pi
 
-        if self.mode == "swingup" and abs(theta) < self.CAPTURE_THETA and abs(vphi) < self.CAPTURE_VPHI:
+        if self.mode == "swingup" and abs(theta) < self.capture_theta and abs(vphi) < self.capture_vphi:
             self.mode = "lqr"
-        elif self.mode == "lqr" and abs(theta) > self.RELEASE_THETA:
+        elif self.mode == "lqr" and abs(theta) > self.release_theta:
             self.mode = "swingup"
 
         if self.mode == "lqr":
@@ -438,7 +456,7 @@ class SwingUpController(Controller):
         energy = pendulum_energy(self.m, self.l, self.g, phi_fmu, vphi)
         energy_top = 2 * self.m * self.g * self.l
         sign = 1.0 if math.cos(phi_fmu) * vphi >= 0 else -1.0
-        a_cmd = self.K_ENERGY * (energy - energy_top) * sign
+        a_cmd = self.k_energy * (energy - energy_top) * sign
         tau = (
             a_cmd * (self.M + self.m * math.sin(phi_fmu) ** 2)
             + self.d_cart * v
@@ -545,7 +563,9 @@ def reset_round(fmu, value_refs, difficulty, s_ref, v_ref, phi_ref, vphi_ref):
 
 
 def run_game(screen):
-    fmu_path = os.path.abspath("InvertedPendulumMB.fmu")
+    # Overridable for the WSL/CVODE solver-comparison spike (CLAUDE.md backlog) —
+    # unset, this is byte-identical to the shipped Windows/Euler default.
+    fmu_path = os.path.abspath(os.environ.get("PENDULUM_FMU", "InvertedPendulumMB.fmu"))
     unzipdir = extract(fmu_path)
     desc = read_model_description(unzipdir)
     fmu = FMU2Slave(
@@ -608,7 +628,19 @@ def run_game(screen):
     manual_time = 0.0
 
     taus, phis = [], []
-    controllers = {"PD": SimpleController(), "LQR": LQRController(), "SwingUp": SwingUpController()}
+
+    def _env_override(name):
+        value = os.environ.get(name)
+        return None if value is None else float(value)
+
+    swingup_k_energy = _env_override("PENDULUM_SWINGUP_K_ENERGY")
+    swingup_capture_theta_deg = _env_override("PENDULUM_SWINGUP_CAPTURE_THETA_DEG")
+    swingup_capture_theta = None if swingup_capture_theta_deg is None else math.radians(swingup_capture_theta_deg)
+    controllers = {
+        "PD": SimpleController(),
+        "LQR": LQRController(),
+        "SwingUp": SwingUpController(k_energy=swingup_k_energy, capture_theta=swingup_capture_theta),
+    }
     controller_name = "PD"
     clock = pygame.time.Clock()
 
