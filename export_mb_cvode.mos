@@ -1,0 +1,7 @@
+// Skript zum FMU-Export fuer das MultiBody-Pendel-Modell mit CVODE-Solver (Linux/WSL-Spike)
+// Analog zu export_mb.mos, aber mit --fmiFlags=s:cvode statt s:euler.
+// Siehe CLAUDE.md "Ideen / Backlog": CVODE ist unter Windows+fmpy instabil (STATUS_HEAP_CORRUPTION,
+// AP1_Validierung.md Abschnitt 3.3); dieses Skript ist fuer den Export unter Linux/WSL gedacht.
+loadFile("InvertedPendulumMB.mo"); getErrorString();
+setCommandLineOptions("--fmiFlags=s:cvode"); getErrorString();
+buildModelFMU(InvertedPendulumMB, version = "2.0", fmuType = "cs"); getErrorString();
