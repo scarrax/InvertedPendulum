@@ -19,12 +19,24 @@ def test_standard_matches_ap3_original_constants():
     assert level["d_pend"] == 0.01
     assert level["bonus_zone_deg"] == 15.0
     assert level["tight_bonus_zone_deg"] == 5.0
+    assert level["max_angle_deg"] == 90.0
+
+
+def test_schwer_max_angle_narrower_than_leicht_and_standard():
+    # Guards against the naive-swing resonance exploit (see CLAUDE.md backlog):
+    # a wide outer scoring cone lets undamped bang-bang swinging rack up points on
+    # Schwer without any real balancing skill. The exact value is a tunable design
+    # constant; this only pins the intended ordering.
+    schwer = DIFFICULTY_LEVELS["Schwer"]["max_angle_deg"]
+    assert schwer < DIFFICULTY_LEVELS["Leicht"]["max_angle_deg"]
+    assert schwer < DIFFICULTY_LEVELS["Standard"]["max_angle_deg"]
 
 
 def test_all_levels_present_with_required_keys():
     required_keys = {
         "bonus_zone_deg",
         "tight_bonus_zone_deg",
+        "max_angle_deg",
         "m_cart",
         "m_pend",
         "d_cart",

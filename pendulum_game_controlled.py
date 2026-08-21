@@ -473,6 +473,7 @@ DIFFICULTY_LEVELS = {
     "Leicht": {
         "bonus_zone_deg": 20.0,
         "tight_bonus_zone_deg": 8.0,
+        "max_angle_deg": 90.0,
         "m_cart": 5.0,
         "m_pend": 0.3,
         "d_cart": 0.08,
@@ -481,6 +482,7 @@ DIFFICULTY_LEVELS = {
     "Standard": {
         "bonus_zone_deg": 15.0,
         "tight_bonus_zone_deg": 5.0,
+        "max_angle_deg": 90.0,
         "m_cart": 5.0,
         "m_pend": 0.5,
         "d_cart": 0.15,
@@ -489,6 +491,17 @@ DIFFICULTY_LEVELS = {
     "Schwer": {
         "bonus_zone_deg": 8.0,
         "tight_bonus_zone_deg": 3.0,
+        # Narrower than Leicht/Standard's 90 deg: at 90 deg, a "naive swing" policy
+        # (fixed-period bang-bang, no attempt to balance) resonates with Schwer's
+        # heavier/less-damped pendulum and scores MORE than the same naive policy on
+        # Leicht (228 vs 233 at each difficulty's own resonance period -- roughly tied,
+        # not the intended "Schwer requires more skill") purely by sweeping the wide
+        # outer scoring cone, without any real balancing skill. Narrowing to 40 deg
+        # drops Schwer's best naive-swing score to ~111, clearly below both Standard's
+        # ~125 and Leicht's ~233, restoring the intended skill/difficulty ordering.
+        # Legitimate precise play (bonus_zone=8deg, tight_bonus_zone=3deg) is far
+        # inside 40 deg and essentially unaffected.
+        "max_angle_deg": 40.0,
         "m_cart": 5.0,
         "m_pend": 0.9,
         "d_cart": 0.05,
@@ -505,9 +518,9 @@ def next_difficulty(current):
 K_STABILITY = 0.5
 
 
-def compute_score_increment(angle, stable_streak, bonus_zone=math.radians(15), tight_bonus_zone=math.radians(5)):
-    max_angle = math.pi / 2
-
+def compute_score_increment(
+    angle, stable_streak, bonus_zone=math.radians(15), tight_bonus_zone=math.radians(5), max_angle=math.pi / 2
+):
     increment = 0.0
     if angle <= max_angle:
         closeness = (max_angle - angle) / max_angle
@@ -738,13 +751,16 @@ def run_game(screen):
         level = DIFFICULTY_LEVELS[difficulty]
         bonus_zone = math.radians(level["bonus_zone_deg"])
         tight_bonus_zone = math.radians(level["tight_bonus_zone_deg"])
+        max_angle = math.radians(level["max_angle_deg"])
 
         if angle <= tight_bonus_zone:
             stable_streak += dt
         else:
             stable_streak = 0.0
 
-        score += compute_score_increment(angle, stable_streak, bonus_zone=bonus_zone, tight_bonus_zone=tight_bonus_zone)
+        score += compute_score_increment(
+            angle, stable_streak, bonus_zone=bonus_zone, tight_bonus_zone=tight_bonus_zone, max_angle=max_angle
+        )
 
         phis.append(phi - math.pi)
         taus.append(tau)

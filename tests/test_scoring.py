@@ -52,3 +52,9 @@ def test_custom_tight_bonus_zone_narrows_bonus_range():
         angle, stable_streak=0.0, bonus_zone=math.radians(15), tight_bonus_zone=math.radians(3)
     )
     assert narrowed_increment < default_increment
+
+
+def test_custom_max_angle_zeroes_score_beyond_it():
+    angle = math.radians(45)  # innerhalb der Standard-90°-Grenze, außerhalb einer 40°-Grenze
+    assert compute_score_increment(angle, stable_streak=0.0) > 0.0
+    assert compute_score_increment(angle, stable_streak=0.0, max_angle=math.radians(40)) == 0.0
