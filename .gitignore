@@ -13,6 +13,9 @@ sim_*.csv
 # Benchmark plots (regenerable via benchmark_controllers.py)
 benchmark_plots/
 
+# In-game screenshots (F12), for the AP5 report figures
+screenshots/
+
 # Python
 __pycache__/
 *.pyc

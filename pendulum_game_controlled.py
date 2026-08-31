@@ -703,6 +703,14 @@ def run_game(screen):
                     auto_time = 0.0
                     manual_time = 0.0
                     taus, phis = [], []
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F12:
+                os.makedirs("screenshots", exist_ok=True)
+                screenshot_path = os.path.join(
+                    "screenshots", f"pendulum_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                )
+                pygame.image.save(screen, screenshot_path)
+                hint_text = f"Screenshot gespeichert: {screenshot_path}"
+                hint_frames_left = 90
 
         if hint_frames_left > 0:
             hint_frames_left -= 1
