@@ -6,10 +6,90 @@
 \chapter{Theoretische Grundlagen}
 \label{ch:grundlagen}
 
-\section{Mechanik des invertierten Pendels}
-% TODO: Lagrange-Herleitung aus protokoll.md einordnen (Kurzfassung, Verweis statt Wiederholung).
-% Winkelkonvention beachten: phi = 0 haengende, phi = pi aufrechte Lage (siehe CLAUDE.md).
+\section{Systembeschreibung und Freiheitsgrade}
+Das mechanische System des Invertierten Pendels besteht aus einem Wagen mit der Masse $M$, der sich auf einer horizontalen Schiene bewegen kann, 
+und einem Pendel mit einer Punktmasse $m$ am Ende eines masselosen, starren Stabes der Länge $l$. 
+Die aktive Stellgröße ist die horizontale Kraft $\tau$, welche translatorisch auf den Wagen wirkt.
+Auf das Drehgelenk des Pendels wirkt kein direktes Stellmoment. 
+Um das System zu beschreiben, werden zwei generalisierte Koordinaten (Freiheitsgrade) eingeführt:
+\begin{itemize}
+    \item $s$: die horizontale Position des Wagens auf der Schiene mit der Wagengeschwindigkeit $v(t) = \dot{s(t)}$
+    \item $\phi(t)$: der Rotationswinkel des Pendelstabs relativ zur vertikalen Achse mit der Winkelgeschwindigkeit $\dot{\phi}(t)$
+\end{itemize} 
+Auf Grund der Systemkonfiguration und der Anzahl der Freiheitsgrade ist das System unterbestimmt, da die zwei Freiheitsgrade (Wagenposition $s$ und Pendelwinkel $\phi$) nur durch eine Stellgröße $\tau$ beeinflusst werden.
+Der Pendelwinkel $\phi$ kann foglich nicht direkt gesteuert werden, sondern nur indirekt über die dynamische Kopplung zwischen Wagen und Pendel.
+Das System ist nichtlinear, da die mechanische Kopplung der Teilsysteme (Wagen und Pendel) über die trigonometrischen Funktionen $\sin(\phi)$ und $\cos(\phi)$ erfolgt.
+Der vertikale obere Totpunkt des Pendels (aufrechte Lage) ist ein instabiler Gleichgewichtszustand. Ohne aktive Regelung führt jede kleine Auslenkung zu einem Umkippen des Pendels.
+Für das mathematische Modell wird eine Winkelkonvention eingeführt, der Winkel $\phi = 0$ beschreibt die stabile, vertikal nach unten hängende Ruhelage des Pendels (globale Minimum der potentiellen Energhie $V$), 
+während $\phi = \pi$ die instabile, vertikal nach oben gerichtete Zielposition beschreibt.
+Unter Berücksichtigung dieses Koordinatensystems ergeben sich die kartesischen Positionen der Pendelmasse ($x_p, y_p$) in Inertialraum zu:
+\begin{align}
+    x_p &= s + l \sin(\phi) \\
+    y_p &= -l \cos(\phi)
+\end{align}
+Durch eine Grenzwertprüfung der Bewegungsgleichungen kann gezeigt werden, das für $\phi = 0$ sich die Pendelmasse im Abstand von $l$ unterhalb des Wagens ($y_p=-l$) befindet, 
+während für $\phi = \pi$ die vertikale Zielposition ($y_p=+l$) abgebildet wird.
+Ein schematischer Aufbau der kinematischen Kette sowie der geometrischen Definition ist in Abbildung \ref{fig:pendulum_kinematic_chain} als Systemskizze dargestellt.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.6\textwidth]{systemskizze}
+    \caption{Systemskizze des invertierten Pendels mit Winkelkonvention: $\varphi=0$ markiert die stabile hängende Ruhelage, $\varphi=\pi$ die instabile aufrechte Zielposition.}
+    \label{fig:pendulum_kinematic_chain}
+\end{figure}
+Die zugehörige gravitative Energie $V(\phi) = m g y_p = -m g l \cos(\phi)$ ist in Abbildung \ref{fig:pendulum_potential_energy} über den Bereich von $[0,\pi]$ dargestellt.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.55\textwidth]{energielandschaft}
+    \caption{Potentielle Energie $V(\varphi)=-mgl\cos(\varphi)$ über $\varphi\in[0,\pi]$: Minimum (stabil) bei $\varphi=0$, Maximum (instabil) bei $\varphi=\pi$.}
+    \label{fig:pendulum_potential_energy}
+\end{figure}
 
-\section{Regelungstechnik}
-% TODO: Grundlagen zu PD-, LQR- und Swing-up-Regelung; Linearisierung um die aufrechte Lage
-% (phi = pi), siehe protokoll.md.
+
+\section{Mathematische Herleitung über den Euler-Lagrange-Formalismus}
+Es wird der Euler-Lagrange-Formalismus verwendet, um die Bewegungsgleichungen des Systems herzuleiten.
+Während der Newton'sche Ansatz die explizite Formulierung und algebraische Eliminierung der Kräfte und Momente erfordert, 
+umgeht die Langrange-Methode diese Notwendigkeit, indem sie die Bewegungsgleichungen direkt aus der Energiebilanz des Systems ableitet.
+\subsection{Mathematiche Definition der Energieterme}
+Die Ableitung der kartesischen Geschwindigkeitskomponenten des Pendelkörpers erfolgt durch zeitrliche Ableitung der Positionengleichungen $x_p$ und $y_p$:
+\begin{align}
+    \dot{x}_p &= \dot{s} + l \cos(\phi) \dot{\phi} \\
+    \dot{y}_p &= l \sin(\phi) \dot{\phi}
+\end{align}
+dabei ist $v=\dot{s}$ die Wagengeschwindigkeit und $\dot{\phi}$ die Winkelgeschwindigkeit des Pendels.
+Das Quadrat der Geschwindigkeit der Pendelmasse ergibt sich zu:
+\begin{align}
+    v_p^2 &= \dot{x}_p^2 + \dot{y}_p^2 \\
+    &= v^2 + 2 l v \cos(\phi) \dot{\phi} + l^2 \dot{\phi}^2
+\end{align}
+Die kinetische Energie $T$ des Systems setzt sich aus der kinetischen Energie des Wagens $T_w$ und der kinetischen Energie des Pendels $T_p$ zusammen:
+\begin{align}
+    T &= T_w + T_p \\
+    &= \frac{1}{2} M v^2 + \frac{1}{2} m v_p^2 \\
+    &= \frac{1}{2} (M+m) v^2 + m l v \cos(\phi) \dot{\phi} + \frac{1}{2} m l^2 \dot{\phi}^2
+\end{align}
+Der gemischte Term $m l v \cos(\phi) \dot{\phi}$ beschreibt die dynamische Kopplung zwischen Wagen und Pendel.
+Die potentielle Energie $V$ des Systems wird ausschließlich durch die gravitative Energie der Pendelposition $y_p$ der Pendelmasse bestimmt:
+\begin{align}
+    V &= m g y_p \\
+    &= - m g l \cos(\phi)
+\end{align}
+Daraus ergibt sich die Lagrange-Funktion $L$ als Differenz von kinetischer und potentieller Energie:
+\begin{align}
+    L(q, \dot{q}) &= T - V \\
+    &= \frac{1}{2} (M+m) v^2 + m l + m l v \cos(\phi) \dot{\phi} + \frac{1}{2} m l^2 \dot{\phi}^2 + m g l \cos(\phi)
+\end{align}
+\subsection{Berücksichtigung nichtkonservativer Effekte}
+
+\subsection{Auswertung der Lagrange-Gleichungen}
+
+\subsection{Explizite Darstellung der Beschleunigungen}
+
+\section{Linearisierung im instabilen Arbeitspunkt und Zustandsraumdarstellung}
+
+\section{Systemtheoretische Steuerbarkeit}
+% hier gibts externe quellen
+\subsection{Das Kalman-Rang-Kriterium}
+
+\subsection{Regelungstechnische Relevanz}
+
+

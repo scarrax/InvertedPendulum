@@ -3,5 +3,42 @@
 % Quelle/Ausgangspunkt: Projektanweisung_Invertiertes_Pendel.md (Abschnitte 1-2), eigene Motivation.
 \chapter{Einleitung und Motivation}
 \label{ch:einleitung}
+\section{Problemstellung und Benchmark-Charakter}
+Das mechatornische System des invertierten Pendels in diesem Projekt besteht aus einem translatorisch gelagerten
+Wagen auf einer horizontalen Schiene und einem daran befestigten Pendelstab, auf diesem Stab wirkt keine direkte Stellgröße.
+Dieses System bestizt in der Regelungstechnik und der nichtlinearen Dynamik eine besondere Benchmark-Charakter zur Validierung von Regelungsalgorithmen/ mathematische Kontrollstrategien (vgl. Stand der Technik des invertierten Pendels und dessen Integration in das Python-Software-Ökosystem
+). Die Komplexität der Stabilisierung des invertierten Pendels auf dem Wagen resultiert aus drei physikalischen Eigenschaften:
+\begin{itemize}
+    \item Das System ist unterbestimmt, da die zwei Freiheitsgrade (Wagenposition s und Pendelwinkel $\phi$) nur durch eine Stellgröße $\tau$ die auf den Wagen wirkt beeinflusst werden können.
+    \item Die Dynamik des Systems ist nichtlinear, da die Bewegungsgleichungen des invertierten Pendels nichtlinear sind.
+    \item Die Zielposition (Pendel aufrecht, $\phi = \tau$) ist ein instabiler Gleichgewichtszustand, bei der kleinste Störungen zu einem Umkippen des Pendels führen können.
+\end{itemize}
+Einen ersten visuellen Eindruck der Simulationsumgebung ist in Abbildung \ref{fig:pendulum_simulation_interactive} dargestellt.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{game_interactive}
+    \caption{Interaktive Simulationsumgebung des invertierten Pendels (Pygame-Fenster im laufenden Spiel).}
+    \label{fig:pendulum_simulation_interactive}
+\end{figure}
 
-% TODO: Motivation, Zielsetzung des Projekts, Aufbau der Arbeit.
+\section{Stand der Technik}
+% mache ich später fertig
+
+\section{Zielsetzung und Ausgangslage}
+Das Ziel des Projekts ist die Weiterentwicklung eines unvollständigen, rein formalbasierten OpenModelica-Referenzmodells (pendulum.mo) zu einem physikalisch realistischen, interaktiven und spielbaren Simulationsumgebung. Darauf hin wurde auch die bestehnde Python-Simulationumgebung (pendulum\_game\_controlled.py) erweitert. 
+Die Ausgangslage vor Bedinn des Projekts umfasste ein flaches Modelica-Modell des invertierten Pendels, das die Bewegungsgleichungen des Systems formal korrekt beschreibt, jedoch keine physikalisch realistische Simulation ermöglicht.
+Im Rahmen dieses Projekts wurde das bestehende Referenzmodell durch eine objektorientierte Implementierung unter Verwendung der Modelica Standard Library (MSL), insbesondere der MultiBody-Bibliothek ersetzt um die gekoppelte Dynamik abzubilden.
+Um die Interaktivität und Spielbarkeit zu gewährleisten, wurde die kompilierte Simulations-FMU in eine Python-Umgebung eingebunden.
+Diese wurde um Tastensteuerung (Pause- und Reset-Funktion), ein zonebasiertes Punktesystem mit kontinuierlichkeits Bonus sowie Schwierigkeitsgrade erweitert.
+
+\section{Aufbau der Arbeit}
+Die Ausarbeitung dokumentiert den Entwicklungsprozess und ist in die folgenden Kapitel gegliedert:
+\begin{itemize}
+    \item Kapitel 2 widmet sich den theoretischen Grundlagen der Modellierung und der Herleitung der Bewegungsgleichungen über die Euler-Lagrange-Gleichungen her.
+    \item Kapitel 3 beschreibt den Aufbau des MultiBody-Modells in OpenModelica sowie dessen algebraische Validierung.
+    \item Kapitel 4 befasst sich mit der softwaretechnischen Umsetung der Simulationsumgebung der Spielmechaniken und des zonebasierten Punktesystems.
+    \item Kapitel 5 stellt den Entwurf und die Implementierung der automatisierten PD-, LQR- und Swing-Up-Regler vor, zudem wird die Performance der Regler in verglichen.
+    \item Kapitel 6 analysiert die physikalischen und spielerischen Auswirkungen der Schwierigkeitsgrade sowie die behebung des Resonanzproblems beim Scoring.
+    \item Die Erkenntisse aus den vorherigen Kapiteln und Sovler-Eigenschaften werden in Kaptiel 7 diskuiert, bevor die Arbeit in Kapitel 8 mit einem Fazit und einem Ausblick schließt. 
+\end{itemize}
+    % TODO: Motivation, Zielsetzung des Projekts, Aufbau der Arbeit.
