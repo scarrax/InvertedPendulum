@@ -79,12 +79,118 @@ Daraus ergibt sich die Lagrange-Funktion $L$ als Differenz von kinetischer und p
     &= \frac{1}{2} (M+m) v^2 + m l v \cos(\phi) \dot{\phi} + \frac{1}{2} m l^2 \dot{\phi}^2 + m g l \cos(\phi)
 \end{align}
 \subsection{Berücksichtigung nichtkonservativer Effekte}
-
+Es treten Dämpfungseffekte auf, druch die translatorische Reibung des Wagens auf der Schiene (Dampfungskonstante $d_{cart}$) und die Rotationsreibung des Pendels am Drehgelenk (Dämpfungskoeffizient $d_{pend}$).
+Diese werden über die Rayleigh-Dissipationsfunktion $F$ berücksichtigt:
+\begin{align}
+    F &= \frac{1}{2} d_{cart} v^2 + \frac{1}{2} d_{pend} \dot{\phi}^2
+\end{align}
+Unter Verwendung der verallgemeinerten Euler-Lagrange-Gleichungen mit Dissipationterm:
+\begin{align}
+    \frac{d}{dt} \left( \frac{\partial L}{\partial \dot{q_i}} \right) - \frac{\partial L}{\partial q_i} + \frac{\partial F}{\partial \dot{q_i}} = Q_i
+    \label{eq:euler_lagrange_general}
+\end{align}
+werden die Bewegungsgleichungen für die generalisierten Koordinaten $q_1 = s$ und $q_2 = \phi$ bestimmt.
+Die horizontale Kraft wirkt als Stelleingang ($Q_1 = \tau$) auf den Wagen, während am Gelenk des Pendels keine direkte Stellgröße ($Q_2 = 0$) wirkt.
 \subsection{Auswertung der Lagrange-Gleichungen}
+Zunächst wird die Gleichung für den Wagen ($q_1 = s, \dot{q_1} = v, Q_1 = \tau$) aufgestellt:
+\begin{align}
+    \frac{\partial L}{\partial v} = (M+m) v + m l \cos(\phi) \dot{\phi} \\
+    \frac{d}{dt}\left(\frac{\partial L}{\partial v}\right) = (M+m)a + m l \cos(\phi) \alpha - m l \sin(\phi) \dot{\phi}^2 \\
+    \frac{\partial L}{\partial s} = 0 \\
+    \frac{\partial F}{\partial v} = d_{cart} v
+\end{align}
+wobei $a = \ddot{s}$ die Wagenbeschleunigung und $\alpha = \ddot{\phi}$ die Winkelbeschleunigung des Pendels ist.
+Durch Einsetzen in \eqref{eq:euler_lagrange_general} ergibt sich die Bewegungsgleichung für den Wagen:
+\begin{align}
+    (M+m)a + m l \cos(\phi) \alpha = \tau + m l \sin(\phi) \dot{\phi}^2 - d_{cart} v 
+    \label{eq:Bewegungsgleichung_Wagen}
+\end{align}
+Analog wird die Gleichung für das Pendel ($q_2 = \phi, \dot{q_2} = \dot{\phi}, Q_{\phi} = 0$) aufgestellt:
+\begin{align}
+    \frac{\partial L}{\partial \dot{\phi}} = m l v \cos(\phi) + m l^2 \dot{\phi} \\
+    \frac{d}{dt}\left(\frac{\partial L}{\partial \dot{\phi}}\right) = m l \cos(\phi) a - m v l \sin(\phi) \dot{\phi} + m l^2 \alpha \\
+    \frac{\partial L}{\partial \phi} = - m v l \sin(\phi) \dot{\phi} - m g l \sin(\phi) \\
+    \frac{\partial F}{\partial \dot{\phi}} = d_{pend} \dot{\phi}
+\end{align}
+Durch Einsetzen in \eqref{eq:euler_lagrange_general} ergibt sich die Bewegungsgleichung für das Pendel:
+\begin{align}
+    m l \cos(\phi) a + m l^2 \alpha = - m g l \sin(\phi) - d_{pend} \dot{\phi} 
+    \label{eq:Bewegungsgleichung_pendel}
+\end{align}
 
 \subsection{Explizite Darstellung der Beschleunigungen}
-
+\eqref{eq:Bewegungsgleichung_Wagen} und \eqref{eq:Bewegungsgleichung_pendel} bilden ein Differenzialgleichungssystem für die Beschleunigungen $a$ und $\alpha$.
+Welches sich in Matrixform darstellen lässt:
+\begin{align}
+    \begin{bmatrix}
+        M+m & m l \cos(\phi) \\
+        m l \cos(\phi) & m l^2
+    \end{bmatrix}
+    \begin{bmatrix}
+        a \\
+        \alpha
+    \end{bmatrix}
+    =
+    \begin{bmatrix}
+        \tau - d_{cart} v + m l \sin(\phi) \dot{\phi}^2 \\
+        - m g l \sin(\phi) - d_{pend} \dot{\phi}
+    \end{bmatrix}
+    \label{mat:Differentialgeichungssystem}
+\end{align}
+Die Determinante $D$ der Massenmatrix lautet:
+\begin{align}
+    D = m l^2 (M + m \sin^2(\phi))
+\end{align}
+da $M, m , l > 0 $ und $\sin^2(\phi) \geq 0$ gilt, ist $D > 0$ und die Massenmatrix Singuläritätsfrei und invertierbar.
+Durch anwenden der Cramer'schen Regel auf \eqref{mat:Differentialgeichungssystem} lassen sich die Beschleunigungen $a$ und $\alpha$ explizit darstellen:
+\begin{align}
+    a = \frac{\tau - d_{cart}v + m\sin\phi\,(l\dot\phi^2 + g\cos\phi)
+      + \dfrac{d_{pend}\cos\phi}{l}\dot\phi}{M + m\sin^2\phi}
+    \label{eq:Beschleunigung_Wagen}
+\end{align}
+\begin{align}
+    \alpha = \frac{-\tau\cos\phi - ml\dot\phi^2\sin\phi\cos\phi
+      - (M+m)g\sin\phi - \dfrac{M+m}{ml}d_{pend}\dot\phi
+      + \cos\phi\,d_{cart}v}{l\,(M + m\sin^2\phi)}
+    \label{eq:Beschleunigung_Pendel}
+\end{align}
 \section{Linearisierung im instabilen Arbeitspunkt und Zustandsraumdarstellung}
+Für den Entwurf eines linearen Relgers wie LQR muss die nichtlineare Dynamik des Systems in der Nähe des instabilen Arbeitspunktes $\phi = \pi$ linearisiert werden.
+Die Winkelabweichung $\theta(t)$ wird relativ zum oberen Arbeitspunkt $\phi = \pi$ wie folgt definiert:
+\begin{align}
+    \phi(t) = \pi + \theta(t)
+\end{align}
+Es wird angenommen dass die Winkelabweichung $\theta \approx 0$ und die Winkelgeschwindigkeit $\dot{\theta} \approx 0$ klein ist, sodass die folgenden Näherungen gelten:
+\begin{align}
+    \sin(\phi) = \sin(\pi + \theta) = -\sin(\theta) \approx -\theta \\
+    \cos(\phi) = \cos(\pi + \theta) = -\cos(\theta) \approx -1 \\
+    \dot{\phi} = \dot{\theta}
+\end{align}
+Produkte höherer Ordnung wie $\theta \dot{\theta}$ werden vernachlässigt.
+Durch Einsetzen der Näherungen in die Bewegungsgleichungen \eqref{eq:Beschleunigung_Wagen} und \eqref{eq:Beschleunigung_Pendel} vereinfacht sich das System zu.
+Der Nennerterm reduziert sich zu $M+m\sin^2(\phi) \approx M + m \theta^2 \approx M$.
+Der nichtlineare Term $l \dot{\phi}^2$ entfällt, da $\dot{\theta}^2 \approx 0$.
+Daraus folgen die linearisierten Bewegungsgleichungen:
+\begin{align}
+    a \approx \frac{-d_{cart}}{M} v + \frac{m g}{M} \theta -\frac{d_{pend}}{M l} \dot{\theta} + \frac{1}{M} \tau
+\end{align}
+\begin{align}
+    \alpha \approx \frac{-d_{cart}}{M l} v + \frac{(M+m) g}{M l} \theta -\frac{(M+m) d_{pend}}{m l^2 M} \dot{\theta} + \frac{1}{M l} \tau
+\end{align}
+Mit den Zustandsvariablen $x_1 = s$, $x_2 = v$, $x_3 = \theta$, $x_4 = \dot{\theta}$ und der Stellgröße $u(t) = \tau (t)$ kann das System in der Standardform der Zustandsraumdarstellung beschrieben werden:
+\begin{align}
+    \dot{x}(t) = A x(t) + B u(t)
+\end{align}
+Die Systemmatrix $A$ und die Eingangsmatrix $B$ ergeben sich zu:
+\begin{align}
+    \dot x = \begin{pmatrix}
+0 & 1 & 0 & 0 \\
+0 & -\dfrac{d_{cart}}{M} & \dfrac{mg}{M} & -\dfrac{d_{pend}}{Ml} \\
+0 & 0 & 0 & 1 \\
+0 & -\dfrac{d_{cart}}{lM} & \dfrac{(M+m)g}{lM} & -\dfrac{(M+m)d_{pend}}{ml^2M}
+\end{pmatrix} x
++ \begin{pmatrix}0\\ 1/M\\ 0\\ 1/(lM)\end{pmatrix}\tau
+\end{align}
 
 \section{Systemtheoretische Steuerbarkeit}
 % hier gibts externe quellen
